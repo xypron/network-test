@@ -9,6 +9,10 @@ class UserData:
         self.data = {};
         self.data['hostname'] = hostName
         self.data['manage_etc_hosts'] = 'localhost'
+        self.data['apt'] = {'sources' : {
+            'rvrelease' : { 'source' : 'ppa:ubuntu-risc-v-team/release' },
+            'rvdevelop' : { 'source' : 'ppa:ubuntu-risc-v-team/develop' }
+        }}
         self.data['users'] = [{
             'name' : user,
             'shell' : '/bin/bash',
