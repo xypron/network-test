@@ -36,16 +36,16 @@ class QemuRunner():
 
         out, err = self.__proc.communicate()
         if out:
-            print(out.decode("utf-8"))
+            print(out.decode('utf-8'))
         if err:
-            print(err.decode("utf-8"))
+            print(err.decode('utf-8'))
 
     def wait_for_output(self, expected):
         """Wait for a specific regular expression being matched and output line"""
 
         while True:
             if (out := self.__proc.stdout.readline()):
-                out = out.decode("utf-8")
+                out = out.decode('utf-8')
                 print(out, end='')
                 if re.search(expected, out):
                     return
@@ -66,15 +66,16 @@ class QemuRunner():
 def main():
     """Command line entry point"""
     qemu = QemuRunner([
-        "qemu-system-x86_64",
-        "-M", "q35", "-accel", "kvm", "-m", "16G", "-smp", "8",
-        "-nographic",
-        "-drive", "file=/tmp/amd64.img,format=raw,if=virtio",
-        "-drive", "file=cidata.iso,format=raw,if=virtio",
-        "-device", "virtio-net-pci,netdev=eth0",
-        "-netdev", "user,id=eth0,hostfwd=tcp::8022-:22"],
+        'qemu-system-x86_64',
+        '-M', 'q35', '-accel', 'kvm', '-m', '16G', '-smp', '8',
+        '-nographic',
+        '-drive', 'file=/tmp/amd64.img,format=raw,if=virtio',
+        '-drive', 'file=cidata.iso,format=raw,if=virtio',
+        '-device', 'virtio-net-pci,netdev=eth0',
+        '-netdev', 'user,id=eth0,hostfwd=tcp::8022-:22'],
         r'Cloud-init.*finished')
-    print("main: READY")
+    print('main: READY')
+    input('press any key to continue')
     qemu.stop()
 
 if __name__ == '__main__':

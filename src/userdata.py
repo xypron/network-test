@@ -12,8 +12,21 @@ class UserData:
         self.data['hostname'] = host_name
         self.data['manage_etc_hosts'] = 'localhost'
         self.data['apt'] = {'sources' : {
-            'rvrelease' : { 'source' : 'ppa:ubuntu-risc-v-team/release' },
-            'rvdevelop' : { 'source' : 'ppa:ubuntu-risc-v-team/develop' }
+            'rvrelease' : {
+                'source' : 'ppa:ubuntu-risc-v-team/release',
+                'keyid' : '52663FF2DFDC39CA',
+                'keyserver' : 'keyserver.ubuntu.com'
+            },
+            'rvdevelop' : {
+                'source' : 'ppa:ubuntu-risc-v-team/develop',
+                'keyid' : '52663FF2DFDC39CA',
+                'keyserver' : 'keyserver.ubuntu.com'
+            },
+            'kernel' : {
+                'source' : 'ppa:canonical-kernel-team/ppa',
+                'keyid' : '0856F197B892ACEA',
+                'keyserver' : 'keyserver.ubuntu.com'
+            }
         }}
         self.data['users'] = [{
             'name' : user,
