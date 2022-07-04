@@ -37,8 +37,12 @@ class UserData:
         }]
         self.data['packages'] = packages.split()
         self.data['package_update'] = True
-        if reboot:
-            self.data['runcmd'] = ['reboot']
+        self.data['runcmd'] = [
+                'grub-install',
+                'sed -i -e \'s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="default_hugepagesz=1G hugepagesz=1G hugepages=4"/g\' /etc/default/grub',
+                'update-grub',
+                'reboot'
+        ]
 
     def dump(self, file_name):
         """Writes the user-data yaml file"""
