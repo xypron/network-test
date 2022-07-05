@@ -39,7 +39,7 @@ class UserData:
         self.data['package_update'] = True
         self.data['runcmd'] = [
                 'grub-install',
-                'sed -i -e \'s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="default_hugepagesz=1G hugepagesz=1G hugepages=4"/g\' /etc/default/grub',
+                'sed -i -e \'s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="default_hugepagesz=2M hugepagesz=2M hugepages=2048""/g\' /etc/default/grub',
                 'update-grub',
                 'reboot'
         ]
