@@ -10,16 +10,28 @@ cidata-x86.iso: id_rsa
 cidata-riscv64.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
-	src/userdata.py -o cidata/user-data
+	src/userdata.py -o cidata/user-data -r -p 'linux-starfive flash-kernel qemu-system-misc'
 	mkisofs -J -V cidata -o cidata-riscv64.iso cidata/
 
-amd64.img:
+kinetic-server-cloudimg-amd64.img:
+	wget https://cloud-images.ubuntu.com/kinetic/current/kinetic-server-cloudimg-amd64.img
+
+kinetic-server-cloudimg-amd64.raw:
+	qemu-img convert -f qcow2 -O raw kinetic-server-cloudimg-amd64.img kinetic-server-cloudimg-amd64.raw
+
+amd64.img: kinetic-server-cloudimg-amd64.raw
 	cp kinetic-server-cloudimg-amd64.raw amd64.img
 	qemu-img resize amd64.img +8G
 
-riscv64.img:
-	cp kinetic-server-cloudimg-risv64.raw riscv64.img
-	qemu-img resize amd64.img +8G
+kinetic-server-cloudimg-riscv64.img:
+	wget http://cloud-images.ubuntu.com/kinetic/current/kinetic-server-cloudimg-riscv64.img
+
+kinetic-server-cloudimg-riscv64.raw: kinetic-server-cloudimg-riscv64.img
+	qemu-img convert -f qcow2 -O raw kinetic-server-cloudimg-riscv64.img kinetic-server-cloudimg-riscv64.raw
+
+riscv64.img: kinetic-server-cloudimg-riscv64.raw
+	cp kinetic-server-cloudimg-riscv64.raw riscv64.img
+	qemu-img resize riscv64.img +8G
 
 x86_VARS.fd:
 	dd if=/dev/zero of=x86_VARS.fd bs=540672 count=1
@@ -37,11 +49,7 @@ x86: cidata-x86.iso amd64.img x86_VARS.fd
 	-device virtio-net-pci,netdev=eth0 \
 	-netdev user,id=eth0,hostfwd=tcp::8022-:22
 
-rv: cidata-riscv64.iso
-	src/userdata.py -o cidata/user-data -r -p 'grub-efi qemu-system-misc u-boot-qemu opensbi linux-image-starfive'
-	cp kinetic-server-cloudimg-riscv64.raw /tmp/riscv64.img
-	qemu-img resize /tmp/riscv64.img +8G
-	mkisofs -J -V cidata -o cidata.iso cidata/
+rv: cidata-riscv64.iso riscv64.img
 	qemu-system-riscv64 \
 	-M virt -accel tcg -m 16G -smp 8 \
 	-nographic \
@@ -50,7 +58,7 @@ rv: cidata-riscv64.iso
 	-device usb-kbd \
 	-bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.bin \
 	-kernel /usr/lib/u-boot/qemu-riscv64_smode/u-boot.bin \
-	-drive file=/tmp/riscv64.img,format=raw,if=virtio \
+	-drive file=riscv64.img,format=raw,if=virtio \
 	-drive file=cidata-riscv64.iso,format=raw,if=virtio \
 	-device virtio-net-device,netdev=eth0 \
 	-netdev user,id=eth0,hostfwd=tcp::8022-:22
@@ -65,12 +73,6 @@ rvchild:
 	-drive file=kinetic-server-cloudimg-riscv64.raw,format=raw,if=virtio \
 	-device virtio-net-device,netdev=eth0 \
 	-netdev user,id=eth0,hostfwd=tcp::8022-:22
-
-kinetic-server-cloudimg-riscv64.img:
-	wget http://cloud-images.ubuntu.com/kinetic/current/kinetic-server-cloudimg-riscv64.img
-
-kinetic-server-cloudimg-riscv64.raw:
-	qemu-img convert kinetic-server-cloudimg-riscv64.img kinetic-server-cloudimg-riscv64.raw
 
 prepare:
 	ssh-keygen -t rsa -b 4096 -f id_rsa -P ''
