@@ -11,7 +11,7 @@ cidata-riscv64.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
 	src/userdata.py -o cidata/user-data
-	mkisofs -J -V cidata -o cidata-risc64.iso cidata/
+	mkisofs -J -V cidata -o cidata-riscv64.iso cidata/
 
 amd64.img:
 	cp kinetic-server-cloudimg-amd64.raw amd64.img
@@ -37,7 +37,7 @@ x86: cidata-x86.iso amd64.img x86_VARS.fd
 	-device virtio-net-pci,netdev=eth0 \
 	-netdev user,id=eth0,hostfwd=tcp::8022-:22
 
-rv: cidata-riscv.iso
+rv: cidata-riscv64.iso
 	src/userdata.py -o cidata/user-data -r -p 'grub-efi qemu-system-misc u-boot-qemu opensbi linux-image-starfive'
 	cp kinetic-server-cloudimg-riscv64.raw /tmp/riscv64.img
 	qemu-img resize /tmp/riscv64.img +8G
