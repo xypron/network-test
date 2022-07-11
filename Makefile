@@ -4,6 +4,12 @@
 export PATH:=$(PATH):/usr/share/openvswitch/scripts
 export DB_SOCK=/var/run/openvswitch/db.sock
 
+kinetic-server-cloudimg-amd64.img:
+	wget https://cloud-images.ubuntu.com/kinetic/current/kinetic-server-cloudimg-amd64.img
+
+kinetic-server-cloudimg-amd64.raw: kinetic-server-cloudimg-amd64.img
+	qemu-img convert -f qcow2 -O raw kinetic-server-cloudimg-amd64.img kinetic-server-cloudimg-amd64.raw
+
 vfio:
 	# Prepare for using DPDK
 	sudo modprobe vfio enable_unsafe_noiommu_mode=1
