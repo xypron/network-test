@@ -42,7 +42,7 @@ id_rsa:
 cidata-x86.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
-	# src/userdata.py -o cidata/user-data -r -n virtamd64 -p grub-efi
+	src/userdata.py -o cidata/user-data -r -n virtamd64 -p 'grub-efi spdk'
 	mkisofs -J -V cidata -o cidata-x86.iso cidata/
 
 cidata-riscv64.iso: id_rsa
