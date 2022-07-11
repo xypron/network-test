@@ -16,7 +16,7 @@ cidata-riscv64.iso: id_rsa
 kinetic-server-cloudimg-amd64.img:
 	wget https://cloud-images.ubuntu.com/kinetic/current/kinetic-server-cloudimg-amd64.img
 
-kinetic-server-cloudimg-amd64.raw:
+kinetic-server-cloudimg-amd64.raw: kinetic-server-cloudimg-amd64.img
 	qemu-img convert -f qcow2 -O raw kinetic-server-cloudimg-amd64.img kinetic-server-cloudimg-amd64.raw
 
 amd64.img: kinetic-server-cloudimg-amd64.raw
