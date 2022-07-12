@@ -39,7 +39,7 @@ x86_VARS.fd:
 x86: cidata-x86.iso amd64.img x86_VARS.fd
 	cp kinetic-server-cloudimg-amd64.raw /tmp/amd64.img
 	qemu-system-x86_64 \
-	-M q35 -cpu host -accel kvm -m 16G -smp 8 \
+	-M q35 -cpu host -accel kvm -m 24G -smp 8 \
 	-nographic \
 	-drive file=amd64.img,format=raw,if=virtio \
 	-drive file=cidata-x86.iso,format=raw,if=virtio \
