@@ -1,5 +1,6 @@
 
 .PHONY: vfio network
+.PRECIOUS: amd64_%.img amd64_VARS_%.fd cidata-amd64_%.iso
 
 export PATH:=$(PATH):/usr/share/openvswitch/scripts
 export DB_SOCK=/var/run/openvswitch/db.sock
