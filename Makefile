@@ -8,3 +8,9 @@ vfio:
 
 network: vfio
 	echo network
+
+
+spdk:
+	sudo iscsi_tgt --no-pci &
+	sudo /usr/share/scripts/spdk/rpc.py bdev_malloc_create -b Malloc0 64 512
+	sudo /usr/share/scripts/spdk/rpc.py bdev_malloc_create -b Malloc1 64 512
