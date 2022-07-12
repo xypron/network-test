@@ -38,6 +38,9 @@ class UserData:
         self.data['packages'] = packages.split()
         self.data['package_update'] = True
         self.data['runcmd'] = [
+                'groupadd --system unpriv_ping'
+                'adduser user unpriv_ping'
+                'echo "net.ipv4.ping_group_range = 1000 1000" > /etc/sysctl.d/99-qemu.conf
                 'grub-install',
                 'sed -i -e \'s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="default_hugepagesz=2M hugepagesz=2M hugepages=2048""/g\' /etc/default/grub',
                 'update-grub',
