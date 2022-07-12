@@ -73,7 +73,7 @@ amd64_VARS_%.fd:
 x86_%: amd64_%.img amd64_VARS_%.fd cidata-amd64_%.iso
 	mkdir -p $(VHOST_USER_SOCKET_PATH)
 	qemu-system-x86_64 \
-        -M q35 -cpu host -accel kvm -m 4G -smp 4 \
+        -M q35 -cpu host -accel kvm -m 6G -smp 4 \
         -nographic \
         -drive file=amd64_$*.img,format=raw,if=virtio \
         -drive file=cidata-amd64_$*.iso,format=raw,if=virtio \
