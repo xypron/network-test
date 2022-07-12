@@ -4,13 +4,13 @@ id_rsa:
 cidata-x86.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
-	src/userdata.py -o cidata/user-data -r -n virtamd64 -p grub-efi
+	src/userdata.py -o cidata/user-data -r -n virtamd64 -p 'grub-efi qemu-system-x86 openvswitch-switch-dpdk'
 	mkisofs -J -V cidata -o cidata-x86.iso cidata/
 
 cidata-riscv64.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
-	src/userdata.py -o cidata/user-data -r -n virtriscv64 -p 'linux-starfive flash-kernel qemu-system-misc'
+	src/userdata.py -o cidata/user-data -r -n virtriscv64 -p 'grub-efi linux-starfive flash-kernel qemu-system-misc net-tools openvswitch-switch-dpdk'
 	mkisofs -J -V cidata -o cidata-riscv64.iso cidata/
 
 kinetic-server-cloudimg-amd64.img:
@@ -62,9 +62,9 @@ rv: cidata-riscv64.iso riscv64.img
 	-kernel /usr/lib/u-boot/qemu-riscv64_smode/u-boot.bin \
 	-drive file=riscv64.img,format=raw,if=virtio \
 	-drive file=cidata-riscv64.iso,format=raw,if=virtio \
-	-device virtio-net-device,netdev=eth0 \
+	-device virtio-net-pci,netdev=eth0 \
 	-netdev user,id=eth0,hostfwd=tcp::8022-:22 \
-	-device virtio-net-device,netdev=eth1 \
+	-device virtio-net-pci,netdev=eth1 \
 	-netdev user,id=eth1
 
 rvchild:
