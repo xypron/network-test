@@ -45,9 +45,12 @@ network: vfio
         options:vhost-server-path=$(VHOST_USER_SOCKET_PATH_2)
 	#sudo ifconfig vport1 10.0.2.201 netmask 255.255.255.0 up
 	#sudo ifconfig vport2 10.0.2.202 netmask 255.255.255.0 up
+	#sudo ovs-ofctl add-flow ovsdpdkbr0 in_port=2,action=output:3
+	#sudo ovs-ofctl add-flow ovsdpdkbr0 in_port=3,action=output:2
 	sudo ovs-vsctl show
 	sudo ovs-ofctl dump-ports ovsdpdkbr0
 	sudo ovs-ofctl show ovsdpdkbr0
+	sudo ovs-ofctl dump-flows ovsdpdkbr0
 
 id_rsa:
 	ssh-keygen -t rsa -b 4096 -N '' -f id_rsa
