@@ -46,10 +46,10 @@ x86: cidata-x86.iso amd64.img x86_VARS.fd
 	-global driver=cfi.pflash01,property=secure,value=off \
 	-drive if=pflash,format=raw,unit=0,file=/usr/share/OVMF/OVMF_CODE_4M.fd,readonly=on \
 	-drive if=pflash,format=raw,unit=1,file=x86_VARS.fd \
-	-device virtio-net-pci,netdev=eth0 \
-	-netdev user,id=eth0,hostfwd=tcp::8023-:22 \
-	-device virtio-net-pci,netdev=eth1 \
-	-netdev user,id=eth1
+	-device virtio-net-pci,netdev=eth0,mq=on \
+	-netdev user,id=eth0,hostfwd=tcp::8031-:22 \
+	-device virtio-net-pci,netdev=eth1,mq=on \
+	-netdev user,id=eth1,hostfwd=tcp::8032-:22
 
 rv: cidata-riscv64.iso riscv64.img
 	qemu-system-riscv64 \
@@ -63,9 +63,9 @@ rv: cidata-riscv64.iso riscv64.img
 	-drive file=riscv64.img,format=raw,if=virtio \
 	-drive file=cidata-riscv64.iso,format=raw,if=virtio \
 	-device virtio-net-pci,netdev=eth0 \
-	-netdev user,id=eth0,hostfwd=tcp::8022-:22 \
-	-device virtio-net-pci,netdev=eth1 \
-	-netdev user,id=eth1
+	-netdev user,id=eth0,hostfwd=tcp::8041-:22 \
+	-device virtio-net-pci,netdev=eth1,mq=on \
+	-netdev user,id=eth1,hostfwd=tcp::8042-:22
 
 rvchild:
 	qemu-system-riscv64 \
@@ -83,7 +83,7 @@ prepare:
 	src/userdata.py -o cidata/user-data
 
 loginx86:
-	ssh -i id_rsa user@localhost -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 8023
+	ssh -i id_rsa user@localhost -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 8031
 
 loginrv:
-	ssh -i id_rsa user@localhost -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 8022
+	ssh -i id_rsa user@localhost -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 8041
