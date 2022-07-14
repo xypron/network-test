@@ -83,11 +83,11 @@ x86_%: amd64_%.img amd64_VARS_%.fd cidata-amd64_%.iso
         -global driver=cfi.pflash01,property=secure,value=off \
         -drive if=pflash,format=raw,unit=0,file=/usr/share/OVMF/OVMF_CODE_4M.fd,readonly=on \
         -drive if=pflash,format=raw,unit=1,file=amd64_VARS_$*.fd \
-        -device virtio-net-pci,netdev=eth0 \
+        -device virtio-net-pci,mac=00:00:00:00:0$*:01,netdev=eth0 \
         -netdev user,id=eth0,hostfwd=tcp::802$*-:22 \
 	-chardev socket,id=char1,path=$(VHOST_USER_SOCKET_PATH_$*),server=on \
-	-netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on \
-	-device virtio-net-pci,mac=00:00:00:00:00:01,netdev=eth1
+	-device virtio-net-pci,mac=00:00:00:00:0$*:02,netdev=eth1 \
+	-netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on
 
 loginx86_%:
 	ssh -i id_rsa user@localhost -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 802$*
