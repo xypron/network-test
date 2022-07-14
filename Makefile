@@ -4,9 +4,6 @@
 
 export PATH:=$(PATH):/usr/share/openvswitch/scripts
 export DB_SOCK=/var/run/openvswitch/db.sock
-export VHOST_USER_SOCKET_PATH=/tmp
-export VHOST_USER_SOCKET_PATH_1:="$(VHOST_USER_SOCKET_PATH)/vhost-user-1"
-export VHOST_USER_SOCKET_PATH_2:="$(VHOST_USER_SOCKET_PATH)/vhost-user-2"
 
 kinetic-server-cloudimg-amd64.img:
 	wget https://cloud-images.ubuntu.com/kinetic/current/kinetic-server-cloudimg-amd64.img
@@ -27,9 +24,10 @@ network: vfio
 	sudo /usr/share/openvswitch/scripts/ovs-ctl stop
 	sudo /usr/share/openvswitch/scripts/ovs-ctl --system-id=random start
 	sudo ovs-vsctl del-br ovsdpdkbr0 || /bin/true
-	sudo ip tuntap del mode tap vport1
-	sudo ip tuntap del mode tap vport2
+	sudo ip tuntap del mode tap vport1 || /bin/true
+	sudo ip tuntap del mode tap vport2 || /bin/true
 	sudo ovs-vsctl add-br ovsdpdkbr0 -- set bridge ovsdpdkbr0 datapath_type=netdev
+	sudo ovs-vsctl set Bridge ovsdpdkbr0 datapath_type=netdev
 	sudo ovs-vsctl add-port ovsdpdkbr0 dpdk0 -- set Interface dpdk0 type=dpdk "options:dpdk-devargs=0000:00:03.0"
 	sudo ifconfig ovsdpdkbr0
 	sudo dhclient ovsdpdkbr0
@@ -39,10 +37,10 @@ network: vfio
 	sudo ifconfig vport2 up
 	sudo ovs-vsctl add-port ovsdpdkbr0 vport1 -- \
 	set Interface vport1 type=dpdkvhostuserclient \
-        options:vhost-server-path=$(VHOST_USER_SOCKET_PATH_1)
+	options:vhost-server-path=/tmp/vsock1
 	sudo ovs-vsctl add-port ovsdpdkbr0 vport2 -- \
 	set Interface vport2 type=dpdkvhostuserclient \
-        options:vhost-server-path=$(VHOST_USER_SOCKET_PATH_2)
+	options:vhost-server-path=/tmp/vsock2
 	#sudo ifconfig vport1 10.0.2.201 netmask 255.255.255.0 up
 	#sudo ifconfig vport2 10.0.2.202 netmask 255.255.255.0 up
 	#sudo ovs-ofctl add-flow ovsdpdkbr0 in_port=2,action=output:3
@@ -74,20 +72,28 @@ amd64_VARS_%.fd:
 	dd if=/dev/zero of=amd64_VARS_$*.fd bs=540672 count=1
 
 x86_%: amd64_%.img amd64_VARS_%.fd cidata-amd64_%.iso
-	mkdir -p $(VHOST_USER_SOCKET_PATH)
+	mkdir -p /tmp
+	# Memory must be in shared hugpages
+	# mrg_rxbuf is not useful for DPDK (cf. https://mails.dpdk.org/archives/dev/2019-June/135298.html)
 	qemu-system-x86_64 \
-        -M q35 -cpu host -accel kvm -m 6G -smp 4 \
-        -nographic \
-        -drive file=amd64_$*.img,format=raw,if=virtio \
-        -drive file=cidata-amd64_$*.iso,format=raw,if=virtio \
-        -global driver=cfi.pflash01,property=secure,value=off \
-        -drive if=pflash,format=raw,unit=0,file=/usr/share/OVMF/OVMF_CODE_4M.fd,readonly=on \
-        -drive if=pflash,format=raw,unit=1,file=amd64_VARS_$*.fd \
-        -device virtio-net-pci,mac=00:00:00:00:0$*:01,netdev=eth0 \
-        -netdev user,id=eth0,hostfwd=tcp::802$*-:22 \
-	-chardev socket,id=char1,path=$(VHOST_USER_SOCKET_PATH_$*),server=on \
-	-device virtio-net-pci,mac=00:00:00:00:0$*:02,netdev=eth1 \
-	-netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on
+	-M q35 -cpu host -accel kvm -m 4G -smp 4 \
+	-nographic \
+	-object memory-backend-file,id=mem,size=4096M,mem-path=/dev/hugepages,share=on \
+	-numa node,memdev=mem \
+	-mem-prealloc \
+	-drive file=amd64_$*.img,format=raw,if=virtio \
+	-drive file=cidata-amd64_$*.iso,format=raw,if=virtio \
+	-global driver=cfi.pflash01,property=secure,value=off \
+	-drive if=pflash,format=raw,unit=0,file=/usr/share/OVMF/OVMF_CODE_4M.fd,readonly=on \
+	-drive if=pflash,format=raw,unit=1,file=amd64_VARS_$*.fd \
+	-device virtio-net-pci,mac=00:00:00:00:0$*:01,netdev=eth0 \
+	-netdev user,id=eth0,hostfwd=tcp::802$*-:22 \
+	-chardev socket,id=char1,server=on,path=/tmp/vsock$* \
+	-device virtio-net-pci,mac=00:00:00:00:0$*:02,netdev=eth1,mrg_rxbuf=off \
+	-netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2
 
 loginx86_%:
 	ssh -i id_rsa user@localhost -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 802$*
+
+altloginx86_%:
+	ssh -i id_rsa user@localhost -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 803$*
