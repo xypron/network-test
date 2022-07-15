@@ -38,9 +38,12 @@ class UserData:
         self.data['packages'] = packages.split()
         self.data['package_update'] = True
         self.data['runcmd'] = [
-                'groupadd --system unpriv_ping'
-                'adduser user unpriv_ping'
-                'echo "net.ipv4.ping_group_range = 1000 1000" > /etc/sysctl.d/99-qemu.conf
+                'addgroup --system hugepage',
+                'grep hugepage /etc/group | sed -e \'s/^[^[:digit:]]*\\([[:digit:]]*\\).*/hugepagetlbfs \\/dev\\/hugepages hugetlbfs git=\\1,mode=775/g\' >> /etc/fstab',
+                'groupadd --system unpriv_ping',
+                'grep unpriv_ping /etc/group | sed -e \'s/^[^[:digit:]]*\\([[:digit:]]*\\).*/net.ipv4.ping_group_range = \\1 \\1/g\' > /etc/sysctl.d/99-qemu.conf',
+                'adduser user unpriv_ping',
+                'adduser user hugepage',
                 'grub-install',
                 'sed -i -e \'s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="default_hugepagesz=2M hugepagesz=2M hugepages=5120"/g\' /etc/default/grub',
                 'update-grub',
