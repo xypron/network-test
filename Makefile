@@ -4,13 +4,13 @@ id_rsa:
 cidata-x86.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
-	src/userdata.py -o cidata/user-data -n virtamd64 -p 'grub-efi make net-tools openvswitch-switch-dpdk qemu-system-x86'
+	src/userdata.py -o cidata/user-data -n virtamd64 -p 'genisoimage grub-efi make net-tools openvswitch-switch-dpdk qemu-system-x86'
 	mkisofs -J -V cidata -o cidata-x86.iso cidata/
 
 cidata-riscv64.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
-	src/userdata.py -o cidata/user-data -r -n virtriscv64 -p 'grub-efi flash-kernel make net-tools linux-starfive openvswitch-switch-dpdk qemu-system-misc'
+	src/userdata.py -o cidata/user-data -r -n virtriscv64 -p 'genisoimage grub-efi flash-kernel make net-tools linux-starfive openvswitch-switch-dpdk qemu-system-misc'
 	mkisofs -J -V cidata -o cidata-riscv64.iso cidata/
 
 kinetic-server-cloudimg-amd64.img:
