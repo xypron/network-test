@@ -1,11 +1,11 @@
 id_rsa:
 	ssh-keygen -t rsa -b 4096 -N '' -f id_rsa
 
-cidata-x86.iso: id_rsa
+cidata-amd64.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
 	src/userdata.py -o cidata/user-data -n virtamd64 -p 'genisoimage grub-efi make net-tools openvswitch-switch-dpdk qemu-system-x86'
-	mkisofs -J -V cidata -o cidata-x86.iso cidata/
+	mkisofs -J -V cidata -o cidata-amd64.iso cidata/
 
 cidata-riscv64.iso: id_rsa
 	mkdir -p cidata/
@@ -33,18 +33,18 @@ riscv64.img: kinetic-server-cloudimg-riscv64.raw
 	cp kinetic-server-cloudimg-riscv64.raw riscv64.img
 	qemu-img resize riscv64.img 16G
 
-x86_VARS.fd:
-	dd if=/dev/zero of=x86_VARS.fd bs=540672 count=1
+VARS-amd64.fd:
+	dd if=/dev/zero of=VARS-amd64.fd bs=540672 count=1
 
-x86: cidata-x86.iso amd64.img x86_VARS.fd
+x86: cidata-amd64.iso amd64.img VARS-amd64.fd
 	qemu-system-x86_64 \
 	-M q35 -cpu host -accel kvm -m 12G -smp 8 \
 	-nographic \
 	-drive file=amd64.img,format=raw,if=virtio \
-	-drive file=cidata-x86.iso,format=raw,if=virtio \
+	-drive file=cidata-amd64.iso,format=raw,if=virtio \
 	-global driver=cfi.pflash01,property=secure,value=off \
 	-drive if=pflash,format=raw,unit=0,file=/usr/share/OVMF/OVMF_CODE_4M.fd,readonly=on \
-	-drive if=pflash,format=raw,unit=1,file=x86_VARS.fd \
+	-drive if=pflash,format=raw,unit=1,file=VARS-amd64.fd \
 	-device virtio-net-pci,netdev=eth0,mq=on \
 	-netdev user,id=eth0,hostfwd=tcp::8031-:22 \
 	-device virtio-net-pci,netdev=eth1,mq=on \
