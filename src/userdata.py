@@ -38,10 +38,16 @@ class UserData:
         self.data['packages'] = packages.split()
         self.data['package_update'] = True
         self.data['runcmd'] = [
+                'systemctl start dpdk',
+                'systemctl start ovsdb-server.service',
+                'ovs-vsctl set Open_vSwitch . "other_config:dpdk-init=true"',
+                'ovs-vsctl set Open_vSwitch . "other_config:dpdk-alloc-mem=1024"',
+                'systemctl stop ovs-vswitchd.service',
+                'update-alternatives --set ovs-vswitchd /usr/lib/openvswitch-switch-dpdk/ovs-vswitchd-dpdk',
                 'addgroup --system hugepage',
                 'addgroup --system unpriv_ping',
                 'adduser user hugepage',
-                'adduser user unpriv_pring',
+                'adduser user unpriv_ping',
                 'grep hugepage /etc/group | sed -e \'s/^[^[:digit:]]*\\([[:digit:]]*\\).*/hugepagetlbfs \\/dev\\/hugepages hugetlbfs gid=\\1,mode=775/g\' >> /etc/fstab',
                 'grep unpriv_ping /etc/group | sed -e \'s/^[^[:digit:]]*\\([[:digit:]]*\\).*/net.ipv4.ping_group_range = \\1 \\1/g\' > /etc/sysctl.d/99-qemu.conf',
                 'grub-install',
