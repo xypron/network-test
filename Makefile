@@ -62,7 +62,7 @@ cidata-riscv64_%.iso: id_rsa
 cidata-amd64_%.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
-	src/userdata.py -o cidata/user-data -r -n c$*-amd64 -p 'grub-efi net-tools dpdk spdk'
+	src/userdata.py -o cidata/user-data -r -n c$*-amd64 -p 'grub-efi net-tools dpdk make spdk'
 	mkisofs -J -V cidata -o cidata-amd64_$*.iso cidata/
 
 amd64_%.img: kinetic-server-cloudimg-amd64.raw
