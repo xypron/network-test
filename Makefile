@@ -4,13 +4,13 @@ id_rsa:
 cidata-x86.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
-	src/userdata.py -o cidata/user-data -r -n virtamd64 -p 'grub-efi qemu-system-x86 openvswitch-switch-dpdk'
+	src/userdata.py -o cidata/user-data -n virtamd64 -p 'grub-efi make net-tools openvswitch-switch-dpdk qemu-system-x86'
 	mkisofs -J -V cidata -o cidata-x86.iso cidata/
 
 cidata-riscv64.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
-	src/userdata.py -o cidata/user-data -r -n virtriscv64 -p 'grub-efi linux-starfive flash-kernel qemu-system-misc net-tools openvswitch-switch-dpdk'
+	src/userdata.py -o cidata/user-data -r -n virtriscv64 -p 'grub-efi flash-kernel make net-tools linux-starfive openvswitch-switch-dpdk qemu-system-misc'
 	mkisofs -J -V cidata -o cidata-riscv64.iso cidata/
 
 kinetic-server-cloudimg-amd64.img:
@@ -37,7 +37,6 @@ x86_VARS.fd:
 	dd if=/dev/zero of=x86_VARS.fd bs=540672 count=1
 
 x86: cidata-x86.iso amd64.img x86_VARS.fd
-	cp kinetic-server-cloudimg-amd64.raw /tmp/amd64.img
 	qemu-system-x86_64 \
 	-M q35 -cpu host -accel kvm -m 12G -smp 8 \
 	-nographic \
