@@ -71,7 +71,10 @@ amd64_%.img: kinetic-server-cloudimg-amd64.raw
 amd64_VARS_%.fd:
 	dd if=/dev/zero of=amd64_VARS_$*.fd bs=540672 count=1
 
-x86_%: amd64_%.img amd64_VARS_%.fd cidata-amd64_%.iso
+nvme_%.img:
+	dd if=/dev/zero of=nvme_$*.img bs=128M count=1
+
+x86_%: amd64_%.img amd64_VARS_%.fd cidata-amd64_%.iso nvme_%.img
 	mkdir -p /tmp
 	# Memory must be in shared hugpages
 	# mrg_rxbuf is not useful for DPDK (cf. https://mails.dpdk.org/archives/dev/2019-June/135298.html)
@@ -90,7 +93,9 @@ x86_%: amd64_%.img amd64_VARS_%.fd cidata-amd64_%.iso
 	-netdev user,id=eth0,hostfwd=tcp::802$*-:22 \
 	-chardev socket,id=char1,server=on,path=/tmp/vsock$* \
 	-device virtio-net-pci,mac=00:00:00:00:0$*:02,netdev=eth1,mrg_rxbuf=off \
-	-netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2
+	-netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2 \
+	-drive file=nvme_$*.img,format=raw,if=none,id=NVME1 \
+	-device nvme,drive=NVME1,serial=nvme-1
 
 loginx86_%:
 	ssh -i id_rsa user@localhost -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 802$*
