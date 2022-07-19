@@ -1,16 +1,17 @@
-vfio:
-	# Prepare for using DPDK
-	sudo modprobe vfio enable_unsafe_noiommu_mode=1
-	sudo modprobe vfio-pci
-	echo 1 | sudo tee -a /sys/module/vfio/parameters/enable_unsafe_noiommu_mode
-	sudo dpdk-devbind.py --bind=vfio-pci 0000:00:03.0
-	sudo dpdk-devbind.py --status
-
-network: vfio
-	echo network
-
-
-spdk:
-	sudo iscsi_tgt --no-pci &
-	sudo /usr/share/scripts/spdk/rpc.py bdev_malloc_create -b Malloc0 64 512
-	sudo /usr/share/scripts/spdk/rpc.py bdev_malloc_create -b Malloc1 64 512
+all:
+	# Client
+	# ======
+	#
+	sudo ifconfig enp0s3 down || true
+	sudo ifconfig enp0s3 10.0.200.202/24 up
+	# Connect to iSCSI target
+	sudo iscsiadm -m discovery -t sendtargets -p 10.0.200.201
+	sudo iscsiadm -m node --logout || true
+	sudo iscsiadm -m node --login
+	# Show devices
+	lsblk
+	# Tune
+	echo none | sudo tee /sys/block/sda/queue/scheduler
+	# echo none | sudo tee /sys/block/sdb/queue/scheduler
+	# Copy data
+	sudo dd if=/dev/sda of=/dev/null bs=1M iflag=direct
