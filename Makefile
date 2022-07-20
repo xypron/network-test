@@ -17,7 +17,7 @@ cidata-amd64.iso: id_rsa
 	src/userdata.py -o cidata/user-data -n virtamd64 -p 'genisoimage grub-efi make net-tools qemu-system-x86'
 	mkisofs -J -V cidata -o cidata-amd64.iso cidata/
 
-cidata-riscv64.iso: id_rsa
+cidata-riscv64.iso: id_rsa linux-image-5.19.0-rc7_5.19.0-rc7-1_riscv64.deb
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
 	echo Package: "openvswitch*\nPin: release o=LP-PPA-ubuntu-risc-v-team-develop\nPin-Priority: 900" \
