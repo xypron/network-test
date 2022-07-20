@@ -21,7 +21,7 @@ cidata-riscv64.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
 	cp linux-image-5.19.0-rc7_5.19.0-rc7-1_riscv64.deb cidata/
-	src/userdata.py -o cidata/user-data -r -n virtriscv64 -p 'genisoimage grub-efi flash-kernel make net-tools openvswitch-switch-dpdk qemu-system-misc'
+	src/userdata.py -o cidata/user-data -n virtriscv64 -p 'genisoimage grub-efi flash-kernel make net-tools openvswitch-switch-dpdk qemu-system-misc'
 	mkisofs -J -V cidata -o cidata-riscv64.iso cidata/
 
 kinetic-server-cloudimg-amd64.img:
@@ -72,9 +72,9 @@ rv: cidata-riscv64.iso riscv64.img
 	-kernel /usr/lib/u-boot/qemu-riscv64_smode/u-boot.bin \
 	-drive file=riscv64.img,format=raw,if=virtio \
 	-drive file=cidata-riscv64.iso,format=raw,if=virtio \
-	-device virtio-net-pci,netdev=eth0 \
+	-device virtio-net-pci,netdev=eth0,rombar=0 \
 	-netdev user,id=eth0,hostfwd=tcp::8041-:22 \
-	-device virtio-net-pci,netdev=eth1,mq=on \
+	-device virtio-net-pci,netdev=eth1,mq=on,rombar=0 \
 	-netdev user,id=eth1,hostfwd=tcp::8042-:22
 
 rvchild:
