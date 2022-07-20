@@ -26,7 +26,7 @@ cidata-riscv64.iso: id_rsa linux-image-5.19.0-rc7_5.19.0-rc7-1_riscv64.deb
 	echo Package: "openvswitch*\nPin: release o=LP-PPA-ubuntu-risc-v-team-develop\nPin-Priority: 900" \
 	> cidata/ppa_pin
 	cp linux-image-5.19.0-rc7_5.19.0-rc7-1_riscv64.deb cidata/
-	src/userdata.py -o cidata/user-data -n virtriscv64 -p 'genisoimage grub-efi flash-kernel make net-tools qemu-system-misc'
+	src/userdata.py -o cidata/user-data -n virtriscv64 -p 'genisoimage grub-efi make net-tools qemu-system-misc'
 	mkisofs -J -V cidata -o cidata-riscv64.iso cidata/
 
 kinetic-server-cloudimg-amd64.img:
