@@ -34,7 +34,7 @@ kinetic-server-cloudimg-amd64.raw: kinetic-server-cloudimg-amd64.img
 
 amd64.img: kinetic-server-cloudimg-amd64.raw
 	cp kinetic-server-cloudimg-amd64.raw amd64.img
-	qemu-img resize amd64.img 16G
+	qemu-img resize -f raw amd64.img 16G
 
 kinetic-server-cloudimg-riscv64.img:
 	wget http://cloud-images.ubuntu.com/kinetic/current/kinetic-server-cloudimg-riscv64.img
@@ -44,7 +44,7 @@ kinetic-server-cloudimg-riscv64.raw: kinetic-server-cloudimg-riscv64.img
 
 riscv64.img: kinetic-server-cloudimg-riscv64.raw
 	cp kinetic-server-cloudimg-riscv64.raw riscv64.img
-	qemu-img resize riscv64.img 16G
+	qemu-img resize -f raw riscv64.img 16G
 
 VARS-amd64.fd:
 	dd if=/dev/zero of=VARS-amd64.fd bs=540672 count=1
