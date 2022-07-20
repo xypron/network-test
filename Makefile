@@ -1,12 +1,18 @@
 
 .PHONY: vfio network
-.PRECIOUS: amd64_%.img amd64_VARS_%.fd cidata-amd64_%.iso
+.PRECIOUS: nvme_%.img riscv64_%.img cidata-riscv64_%.iso amd64_%.img amd64_VARS_%.fd cidata-amd64_%.iso
 
 export PATH:=$(PATH):/usr/share/openvswitch/scripts
 export DB_SOCK=/var/run/openvswitch/db.sock
 
 kinetic-server-cloudimg-amd64.img:
 	wget https://cloud-images.ubuntu.com/kinetic/current/kinetic-server-cloudimg-amd64.img
+
+kinetic-server-cloudimg-riscv64.raw:
+	sudo umount /mnt || true
+	sudo mount /dev/vdb /mnt -o ro
+	qemu-img convert -f qcow2 -O raw /mnt/kinetic-server-cloudimg-riscv64.img kinetic-server-cloudimg-riscv64.raw
+	sudo umount /mnt
 
 kinetic-server-cloudimg-amd64.raw: kinetic-server-cloudimg-amd64.img
 	qemu-img convert -f qcow2 -O raw kinetic-server-cloudimg-amd64.img kinetic-server-cloudimg-amd64.raw
@@ -65,6 +71,9 @@ cidata-amd64_%.iso: id_rsa
 	src/userdata.py -o cidata/user-data -r -n c$*-amd64 -p 'grub-efi net-tools dpdk make spdk'
 	mkisofs -J -V cidata -o cidata-amd64_$*.iso cidata/
 
+riscv64_%.img: kinetic-server-cloudimg-riscv64.raw
+	cp kinetic-server-cloudimg-riscv64.raw riscv64_$*.img
+
 amd64_%.img: kinetic-server-cloudimg-amd64.raw
 	cp kinetic-server-cloudimg-amd64.raw amd64_$*.img
 
@@ -74,8 +83,29 @@ amd64_VARS_%.fd:
 nvme_%.img:
 	dd if=/dev/zero of=nvme_$*.img bs=128M count=1
 
+rv_%: riscv64_%.img cidata-riscv64_%.iso nvme_%.img
+	# Memory must be in shared hugpages
+	# mrg_rxbuf is not useful for DPDK (cf. https://mails.dpdk.org/archives/dev/2019-June/135298.html)
+	qemu-system-riscv64 \
+	-M virt -cpu host -accel kvm -m 4G -smp 4 \
+	-bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.elf \
+	-kernel /usr/lib/u-boot/qemu-riscv64_smode/uboot.elf \
+	-nographic \
+	-object memory-backend-file,id=mem,size=4096M,mem-path=/dev/hugepages,share=on \
+	-numa node,memdev=mem \
+	-mem-prealloc \
+	-drive file=riscv64_$*.img,format=raw,if=virtio \
+	-drive file=cidata-riscv64_$*.iso,format=raw,if=virtio \
+	-device virtio-net-pci,mac=00:00:00:00:0$*:01,netdev=eth0 \
+	-netdev user,id=eth0,hostfwd=tcp::802$*-:22 \
+	-chardev socket,id=char1,server=on,path=/tmp/vsock$* \
+	-device virtio-net-pci,mac=00:00:00:00:0$*:02,netdev=eth1,mrg_rxbuf=off \
+	-netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2 \
+	-drive file=nvme_$*.img,format=raw,if=none,id=NVME1 \
+	-device nvme,drive=NVME1,serial=nvme-1 \
+	-device virtio-rng-pci
+
 x86_%: amd64_%.img amd64_VARS_%.fd cidata-amd64_%.iso nvme_%.img
-	mkdir -p /tmp
 	# Memory must be in shared hugpages
 	# mrg_rxbuf is not useful for DPDK (cf. https://mails.dpdk.org/archives/dev/2019-June/135298.html)
 	qemu-system-x86_64 \
