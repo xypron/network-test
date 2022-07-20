@@ -1,3 +1,13 @@
+linux-image-5.19.0-rc7_5.19.0-rc7-1_riscv64.deb:
+	rm linux/ -rf
+	git clone https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git --depth 1 linux/ -b v5.19-rc7
+	cd linux && ARCH=riscv make defconfig
+	cd linux && echo \
+	"CONFIG_KVM=y\nCONFIG_MD=y\nCONFIG_BLK_DEV_DM=y\nCONFIG_SECURITY=y\nCONFIG_SECURITYFS=y\nCONFIG_SECURITY_APPARMOR=y\nCONFIG_SECURITY_APPARMOR_HASH=y\nCONFIG_SECURITY_APPARMOR_HASH_DEFAULT=y" \
+	>> .config
+	cd linux && ARCH=riscv make olddefconfig
+	cd linux && ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- make bindeb-pkg -j$$(nproc)
+
 id_rsa:
 	ssh-keygen -t rsa -b 4096 -N '' -f id_rsa
 
@@ -10,7 +20,8 @@ cidata-amd64.iso: id_rsa
 cidata-riscv64.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
-	src/userdata.py -o cidata/user-data -r -n virtriscv64 -p 'genisoimage grub-efi flash-kernel make net-tools linux-starfive openvswitch-switch-dpdk qemu-system-misc'
+	cp linux-image-5.19.0-rc7_5.19.0-rc7-1_riscv64.deb cidata/
+	src/userdata.py -o cidata/user-data -r -n virtriscv64 -p 'genisoimage grub-efi flash-kernel make net-tools openvswitch-switch-dpdk qemu-system-misc'
 	mkisofs -J -V cidata -o cidata-riscv64.iso cidata/
 
 kinetic-server-cloudimg-amd64.img:
