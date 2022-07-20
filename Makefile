@@ -1,9 +1,12 @@
-linux-image-5.19.0-rc7_5.19.0-rc7-1_riscv64.deb:
+linux:
 	rm linux/ -rf
 	git clone https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git --depth 1 linux/ -b v5.19-rc7
+
+linux-image-5.19.0-rc7_5.19.0-rc7-1_riscv64.deb:
+	cd linux && git fetch --depth 1 origin v5.19-rc7
 	cd linux && ARCH=riscv make defconfig
 	cd linux && echo \
-	"CONFIG_KVM=y\nCONFIG_MD=y\nCONFIG_BLK_DEV_DM=y\nCONFIG_SECURITY=y\nCONFIG_SECURITYFS=y\nCONFIG_SECURITY_APPARMOR=y\nCONFIG_SECURITY_APPARMOR_HASH=y\nCONFIG_SECURITY_APPARMOR_HASH_DEFAULT=y" \
+	"CONFIG_KVM=y\nCONFIG_MD=y\nCONFIG_BLK_DEV_DM=y\nCONFIG_VFIO=m\nCONFIG_VFIO_NOIOMMU=y\nCONFIG_VFIO_PCI=m\nCONFIG_VFIO_MDEV=m\nCONFIG_SQUASHFS=y\nCONFIG_SQUASHFS_FILE_DIRECT=y\nCONFIG_SQUASHFS_DECOMP_SINGLE=y\nCONFIG_SQUASHFS_XATTR=y\nCONFIG_SQUASHFS_ZLIB=y\nCONFIG_SQUASHFS_LZ4=y\nCONFIG_SQUASHFS_LZO=y\nCONFIG_SQUASHFS_XZ=y\nCONFIG_SQUASHFS_ZSTD=y\nCONFIG_SECURITY=y\nCONFIG_SECURITYFS=y\nCONFIG_SECURITY_APPARMOR=y\nCONFIG_SECURITY_APPARMOR_HASH=y\nCONFIG_SECURITY_APPARMOR_HASH_DEFAULT=y" \
 	>> .config
 	cd linux && ARCH=riscv make olddefconfig
 	cd linux && ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- make bindeb-pkg -j$$(nproc)
@@ -74,9 +77,9 @@ rv: cidata-riscv64.iso riscv64.img
 	-kernel /usr/lib/u-boot/qemu-riscv64_smode/u-boot.bin \
 	-drive file=riscv64.img,format=raw,if=virtio \
 	-drive file=cidata-riscv64.iso,format=raw,if=virtio \
-	-device virtio-net-pci,netdev=eth0,rombar=0 \
+	-device virtio-net-pci,netdev=eth0,rombar=0,romfile= \
 	-netdev user,id=eth0,hostfwd=tcp::8041-:22 \
-	-device virtio-net-pci,netdev=eth1,mq=on,rombar=0 \
+	-device virtio-net-pci,netdev=eth1,mq=on,rombar=0,romfile= \
 	-netdev user,id=eth1,hostfwd=tcp::8042-:22
 
 rvchild:

@@ -42,7 +42,7 @@ class UserData:
                 'test -f /mnt/*.deb && dpkg -i /mnt/*.deb',
                 'test -f /mnt/*_pin && cp /mnt/*_pin /etc/apt/preferences.d/',
                 'umount /dev/vdb',
-                'apt-get install openvswitch-switch-dpdk',
+                'DEBIAN_FRONTEND=noninteractive apt-get install openvswitch-switch-dpdk -y',
                 'systemctl start dpdk',
                 'systemctl start ovsdb-server.service',
                 'ovs-vsctl set Open_vSwitch . "other_config:dpdk-init=true"',
@@ -58,6 +58,8 @@ class UserData:
                 'grub-install',
                 'sed -i -e \'s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="default_hugepagesz=2M hugepagesz=2M hugepages=5120"/g\' /etc/default/grub',
                 'update-grub',
+                'DEBIAN_FRONTEND=noninteractive apt-get purge u-boot-menu -y',
+                'rm -rf /boot/extlinux/',
                 'reboot'
         ]
 
