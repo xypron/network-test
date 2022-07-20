@@ -38,6 +38,7 @@ class UserData:
         self.data['packages'] = packages.split()
         self.data['package_update'] = True
         self.data['runcmd'] = [
+                'DEBIAN_FRONTEND=noninteractive apt-get purge -y flash-kernel grub-pc-bin u-boot-menu',
                 'grub-install',
                 'sed -i -e \'s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="default_hugepagesz=2M hugepagesz=2M hugepages=1024"/g\' /etc/default/grub',
                 'update-grub',
