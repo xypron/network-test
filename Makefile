@@ -62,13 +62,13 @@ id_rsa:
 cidata-riscv64_%.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
-	src/userdata.py -o cidata/user-data -r -n c$*-riscv64 -p 'daemonize linux-starfive flash-kernel net-tools dpdk spdk'
+	src/userdata.py -o cidata/user-data -r -n c$*-riscv64 -p 'daemonize grub-efi linux-starfive net-tools dpdk spdk'
 	mkisofs -J -V cidata -o cidata-riscv64_$*.iso cidata/
 
 cidata-amd64_%.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
-	src/userdata.py -o cidata/user-data -r -n c$*-amd64 -p 'grub-efi net-tools dpdk make spdk'
+	src/userdata.py -o cidata/user-data -r -n c$*-amd64 -p 'daemonzize grub-efi net-tools dpdk make spdk'
 	mkisofs -J -V cidata -o cidata-amd64_$*.iso cidata/
 
 riscv64_%.img: kinetic-server-cloudimg-riscv64.raw
