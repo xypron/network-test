@@ -40,7 +40,9 @@ class UserData:
         self.data['runcmd'] = [
                 'mount /dev/vdb /mnt -o ro',
                 'test -f /mnt/*.deb && dpkg -i /mnt/*.deb',
+                'test -f /mnt/*_pin && cp /mnt/*_pin /etc/apt/preferences.d/',
                 'umount /dev/vdb',
+                'apt-get install openvswitch-switch-dpdk',
                 'systemctl start dpdk',
                 'systemctl start ovsdb-server.service',
                 'ovs-vsctl set Open_vSwitch . "other_config:dpdk-init=true"',
