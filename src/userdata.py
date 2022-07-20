@@ -38,9 +38,9 @@ class UserData:
         self.data['packages'] = packages.split()
         self.data['package_update'] = True
         self.data['runcmd'] = [
-                'mount /dev/vdb /mnt -o ro'
-                'test -f /mnt/*.deb && dpkg -i /mnt/*.deb'
-                'umount /dev/vdb'
+                'mount /dev/vdb /mnt -o ro',
+                'test -f /mnt/*.deb && dpkg -i /mnt/*.deb',
+                'umount /dev/vdb',
                 'systemctl start dpdk',
                 'systemctl start ovsdb-server.service',
                 'ovs-vsctl set Open_vSwitch . "other_config:dpdk-init=true"',
