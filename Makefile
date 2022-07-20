@@ -3,34 +3,40 @@ linux:
 	git clone https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git --depth 1 linux/ -b v5.19-rc7
 
 linux-image-5.19.0-rc7_5.19.0-rc7-1_riscv64.deb:
+	rm -f linux*.deb
+	rm -f linux/.version
 	cd linux && git fetch --depth 1 origin v5.19-rc7
 	cd linux && ARCH=riscv make defconfig
-	cd linux && echo \
-	"CONFIG_KVM=y\nCONFIG_MD=y\nCONFIG_BLK_DEV_DM=y\nCONFIG_VFIO=m\nCONFIG_VFIO_NOIOMMU=y\nCONFIG_VFIO_PCI=m\nCONFIG_VFIO_MDEV=m\nCONFIG_SQUASHFS=y\nCONFIG_SQUASHFS_FILE_DIRECT=y\nCONFIG_SQUASHFS_DECOMP_SINGLE=y\nCONFIG_SQUASHFS_XATTR=y\nCONFIG_SQUASHFS_ZLIB=y\nCONFIG_SQUASHFS_LZ4=y\nCONFIG_SQUASHFS_LZO=y\nCONFIG_SQUASHFS_XZ=y\nCONFIG_SQUASHFS_ZSTD=y\nCONFIG_SECURITY=y\nCONFIG_SECURITYFS=y\nCONFIG_SECURITY_APPARMOR=y\nCONFIG_SECURITY_APPARMOR_HASH=y\nCONFIG_SECURITY_APPARMOR_HASH_DEFAULT=y" \
-	>> .config
+	cp config-5.19-rc7 linux/.config
 	cd linux && ARCH=riscv make olddefconfig
 	cd linux && ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- make bindeb-pkg -j$$(nproc)
 
 id_rsa:
 	ssh-keygen -t rsa -b 4096 -N '' -f id_rsa
 
+kinetic-server-cloudimg-amd64.img:
+	wget https://cloud-images.ubuntu.com/kinetic/current/kinetic-server-cloudimg-amd64.img
+
 cidata-amd64.iso: id_rsa
-	mkdir -p cidata/
+	rm -rf cidata/
+	mkdir cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
 	src/userdata.py -o cidata/user-data -n virtamd64 -p 'genisoimage grub-efi make net-tools qemu-system-x86'
 	mkisofs -J -V cidata -o cidata-amd64.iso cidata/
 
-cidata-riscv64.iso: id_rsa linux-image-5.19.0-rc7_5.19.0-rc7-1_riscv64.deb
-	mkdir -p cidata/
+kinetic-server-cloudimg-riscv64.img:
+	wget http://cloud-images.ubuntu.com/kinetic/current/kinetic-server-cloudimg-riscv64.img
+
+cidata-riscv64.iso: id_rsa linux-image-5.19.0-rc7_5.19.0-rc7-1_riscv64.deb kinetic-server-cloudimg-riscv64.img
+	rm -rf cidata/
+	mkdir cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
 	echo Package: "openvswitch*\nPin: release o=LP-PPA-ubuntu-risc-v-team-develop\nPin-Priority: 900" \
 	> cidata/ppa_pin
 	cp linux-image-5.19.0-rc7_5.19.0-rc7-1_riscv64.deb cidata/
+	cp kinetic-server-cloudimg-riscv64.img cidata/
 	src/userdata.py -o cidata/user-data -n virtriscv64 -p 'genisoimage grub-efi make net-tools qemu-system-misc'
 	mkisofs -J -V cidata -o cidata-riscv64.iso cidata/
-
-kinetic-server-cloudimg-amd64.img:
-	wget https://cloud-images.ubuntu.com/kinetic/current/kinetic-server-cloudimg-amd64.img
 
 kinetic-server-cloudimg-amd64.raw: kinetic-server-cloudimg-amd64.img
 	qemu-img convert -f qcow2 -O raw kinetic-server-cloudimg-amd64.img kinetic-server-cloudimg-amd64.raw
@@ -38,9 +44,6 @@ kinetic-server-cloudimg-amd64.raw: kinetic-server-cloudimg-amd64.img
 amd64.img: kinetic-server-cloudimg-amd64.raw
 	cp kinetic-server-cloudimg-amd64.raw amd64.img
 	qemu-img resize -f raw amd64.img 16G
-
-kinetic-server-cloudimg-riscv64.img:
-	wget http://cloud-images.ubuntu.com/kinetic/current/kinetic-server-cloudimg-riscv64.img
 
 kinetic-server-cloudimg-riscv64.raw: kinetic-server-cloudimg-riscv64.img
 	qemu-img convert -f qcow2 -O raw kinetic-server-cloudimg-riscv64.img kinetic-server-cloudimg-riscv64.raw
