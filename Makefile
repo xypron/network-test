@@ -35,7 +35,7 @@ cidata-riscv64.iso: id_rsa linux-image-5.19.0-rc7_5.19.0-rc7-1_riscv64.deb kinet
 	> cidata/ppa_pin
 	cp linux-image-5.19.0-rc7_5.19.0-rc7-1_riscv64.deb cidata/
 	cp kinetic-server-cloudimg-riscv64.img cidata/
-	src/userdata.py -o cidata/user-data -n virtriscv64 -p 'genisoimage grub-efi make net-tools qemu-system-misc'
+	src/userdata.py -o cidata/user-data -n virtriscv64 -p 'genisoimage grub-efi make net-tools qemu-system-misc u-boot-qemu'
 	mkisofs -J -V cidata -o cidata-riscv64.iso cidata/
 
 kinetic-server-cloudimg-amd64.raw: kinetic-server-cloudimg-amd64.img
