@@ -62,7 +62,7 @@ id_rsa:
 cidata-riscv64_%.iso: id_rsa
 	mkdir -p cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
-	src/userdata.py -o cidata/user-data -r -n c$*-riscv64 -p 'daemonize grub-efi linux-starfive net-tools dpdk spdk'
+	src/userdata.py -o cidata/user-data -r -n c$*-riscv64 -p 'daemonize grub-efi make net-tools dpdk spdk'
 	mkisofs -J -V cidata -o cidata-riscv64_$*.iso cidata/
 
 cidata-amd64_%.iso: id_rsa
