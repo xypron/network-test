@@ -77,6 +77,7 @@ riscv64_%.img: kinetic-server-cloudimg-riscv64.raw
 
 amd64_%.img: kinetic-server-cloudimg-amd64.raw
 	cp kinetic-server-cloudimg-amd64.raw amd64_$*.img
+	qemu-img resize -f raw amd64_$*.img 5G
 
 amd64_VARS_%.fd:
 	dd if=/dev/zero of=amd64_VARS_$*.fd bs=540672 count=1
