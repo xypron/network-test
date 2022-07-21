@@ -5,17 +5,17 @@
 export PATH:=$(PATH):/usr/share/openvswitch/scripts
 export DB_SOCK=/var/run/openvswitch/db.sock
 
-kinetic-server-cloudimg-amd64.img:
-	wget https://cloud-images.ubuntu.com/kinetic/current/kinetic-server-cloudimg-amd64.img
+kinetic-server-cloudimg-amd64.raw:
+	sudo umount /mnt || true
+	sudo mount /dev/vdb /mnt -o ro
+	qemu-img convert -f qcow2 -O raw /mnt/kinetic-server-cloudimg-amd64.img kinetic-server-cloudimg-amd64.raw
+	sudo umount /mnt
 
 kinetic-server-cloudimg-riscv64.raw:
 	sudo umount /mnt || true
 	sudo mount /dev/vdb /mnt -o ro
 	qemu-img convert -f qcow2 -O raw /mnt/kinetic-server-cloudimg-riscv64.img kinetic-server-cloudimg-riscv64.raw
 	sudo umount /mnt
-
-kinetic-server-cloudimg-amd64.raw: kinetic-server-cloudimg-amd64.img
-	qemu-img convert -f qcow2 -O raw kinetic-server-cloudimg-amd64.img kinetic-server-cloudimg-amd64.raw
 
 vfio:
 	# Prepare for using DPDK
@@ -73,7 +73,7 @@ cidata-amd64_%.iso: id_rsa
 
 riscv64_%.img: kinetic-server-cloudimg-riscv64.raw
 	cp kinetic-server-cloudimg-riscv64.raw riscv64_$*.img
-	qemu-img resize -f raw riscv64_$*.img 4G
+	qemu-img resize -f raw riscv64_$*.img 5G
 
 amd64_%.img: kinetic-server-cloudimg-amd64.raw
 	cp kinetic-server-cloudimg-amd64.raw amd64_$*.img
