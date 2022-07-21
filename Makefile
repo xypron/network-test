@@ -21,6 +21,7 @@ cidata-amd64.iso: id_rsa
 	rm -rf cidata/
 	mkdir cidata/
 	echo instance-id: $$(uuidgen) > cidata/meta-data
+	cp kinetic-server-cloudimg-amd64.img cidata/
 	src/userdata.py -o cidata/user-data -n virtamd64 -p 'genisoimage grub-efi make net-tools qemu-system-x86'
 	mkisofs -J -V cidata -o cidata-amd64.iso cidata/
 
