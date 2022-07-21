@@ -5,12 +5,10 @@ all:
 	# initialize network
 	sudo ifconfig enp0s3 down || true
 	sudo ifconfig enp0s3 10.0.200.201/24 up
+	# set driver for NVMe driver
 	sudo modprobe vfio enable_unsafe_noiommu_mode=1
 	sudo modprobe vfio-pci
 	sudo echo 1 | sudo tee -a /sys/module/vfio/parameters/enable_unsafe_noiommu_mode
-	sudo dpdk-devbind.py --bind=vfio-pci 0000:00:03.0
-	sudo dpdk-devbind.py --status
-	# set driver for NVMe driver
 	sudo /usr/share/spdk/scripts/setup.sh
 	# setup.sh messes up the console
 	reset
