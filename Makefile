@@ -73,6 +73,7 @@ cidata-amd64_%.iso: id_rsa
 
 riscv64_%.img: kinetic-server-cloudimg-riscv64.raw
 	cp kinetic-server-cloudimg-riscv64.raw riscv64_$*.img
+	qemu-img resize -f raw riscv64_$*.img 4G
 
 amd64_%.img: kinetic-server-cloudimg-amd64.raw
 	cp kinetic-server-cloudimg-amd64.raw amd64_$*.img
@@ -96,6 +97,7 @@ rv_%: riscv64_%.img cidata-riscv64_%.iso nvme_%.img
 	-mem-prealloc \
 	-drive file=riscv64_$*.img,format=raw,if=virtio \
 	-drive file=cidata-riscv64_$*.iso,format=raw,if=virtio \
+	-device virtio-rng-pci \
 	-device virtio-net-pci,mac=00:00:00:00:0$*:01,netdev=eth0 \
 	-netdev user,id=eth0,hostfwd=tcp::802$*-:22 \
 	-chardev socket,id=char1,server=on,path=/tmp/vsock$* \
