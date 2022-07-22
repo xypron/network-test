@@ -58,7 +58,7 @@ VARS-amd64.fd:
 
 x86: cidata-amd64.iso amd64.img VARS-amd64.fd
 	qemu-system-x86_64 \
-	-M q35 -cpu host -accel kvm -m 12G -smp 8 \
+	-M q35 -cpu host -accel kvm -m 20G -smp 8 \
 	-nographic \
 	-drive file=amd64.img,format=raw,if=virtio \
 	-drive file=cidata-amd64.iso,format=raw,if=virtio \
