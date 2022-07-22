@@ -19,15 +19,25 @@ class TestRunner:
         self.test = yaml.load(text, Loader=yaml.SafeLoader)
 
     def execute_command(self, step):
-        command = step['command'].split()
-        print(f"command '{step['command']}'")
+        command = step['command']
+        print(repr(command))
+        command = ['bash', '-c', command]
         process = subprocess.run(command, capture_output = True)
 
-        expected_returncode = step.get('ret', 0)
-        assert(expected_returncode == process.returncode)
-
+        returncode = process.returncode
         stdout = process.stdout.decode('utf-8')
         stderr = process.stderr.decode('utf-8')
+
+        print(f"stdout: {repr(stdout)}");
+        print(f"stderr: {repr(stderr)}");
+
+        expected_returncode = step.get('ret', 0)
+        if expected_returncode != returncode:
+            print(f'unexpected return code {returncode}')
+            print(f'stderr {repr(stderr)}');
+            assert False
+        assert(expected_returncode == process.returncode)
+
         if 'expected' in step:
             items = step['expected']
             if isinstance(items, str):
