@@ -19,6 +19,30 @@ steps:
       test -f id_rsa ||
       ssh-keygen -t rsa -b 4096 -N '' -f id_rsa
 
+  - name: create cloud init data for child VM 1
+    command:
+      test -f cidata-amd64.iso || (
+      rm -rf cidata/ &&
+      mkdir cidata/ &&
+      echo 'instance-id:' $(uuidgen) > cidata/meta-data &&
+      cp id_rsa* cidata/ &&
+      src/clientdata.py -o cidata/user-data -n childvm1
+      -p 'dpdk grub-efi make net-tools spdk' &&
+      mkisofs -J -V cidata -o cidata-amd64-1.iso cidata/
+      )
+
+  - name: create cloud init data for child VM 2
+    command:
+      test -f cidata-amd64.iso || (
+      rm -rf cidata/ &&
+      mkdir cidata/ &&
+      echo 'instance-id:' $(uuidgen) > cidata/meta-data &&
+      cp id_rsa* cidata/ &&
+      src/clientdata.py -o cidata/user-data -n childvm2
+      -p 'dpdk grub-efi make net-tools spdk' &&
+      mkisofs -J -V cidata -o cidata-amd64-2.iso cidata/
+      )
+
   - name: create cloud init data
     command:
       test -f cidata-amd64.iso || (
@@ -27,8 +51,10 @@ steps:
       echo 'instance-id:' $(uuidgen) > cidata/meta-data &&
       cp id_rsa* cidata/ &&
       cp kinetic-server-cloudimg-amd64.img cidata/ &&
+      cp cidata-amd64-1.iso cidata/ &&
+      cp cidata-amd64-2.iso cidata/ &&
       src/userdata.py -o cidata/user-data -n virtamd64
-      -p 'genisoimage grub-efi make net-tools qemu-system-x86' &&
+      -p 'grub-efi make net-tools qemu-system-x86' &&
       mkisofs -J -V cidata -o cidata-amd64.iso cidata/
       )
 
@@ -47,13 +73,15 @@ steps:
       -drive file=amd64.img,format=raw,if=virtio
       -drive file=cidata-amd64.iso,format=raw,if=virtio
       -global driver=cfi.pflash01,property=secure,value=off
-      -drive if=pflash,format=raw,unit=0,file=/usr/share/OVMF/OVMF_CODE_4M.fd,readonly=on
+      -drive
+      if=pflash,format=raw,unit=0,file=/usr/share/OVMF/OVMF_CODE_4M.fd,readonly=on
       -drive if=pflash,format=raw,unit=1,file=VARS-amd64.fd
       -device virtio-net-pci,netdev=eth0,mq=on
-      -netdev user,id=eth0,hostfwd=tcp::8011-:22,hostfwd=tcp::8021-:8021,hostfwd=tcp::8022-:8022
+      -netdev
+      user,id=eth0,hostfwd=tcp::8011-:22,hostfwd=tcp::8021-:8021,hostfwd=tcp::8022-:8022
       -device virtio-net-pci,netdev=eth1,mq=on
       -netdev user,id=eth1,hostfwd=tcp::8012-:22
-    expected: Cloud-init.*finished at
+    expected: Reached target.*Cloud-init target
 
   - name: reset terminal
     command:
@@ -75,5 +103,142 @@ steps:
       -p 8011 user@localhost
       'pwd && ls /mnt && ls /home/user'
 
+  - name: modprobe vfio
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo modprobe vfio enable_unsafe_noiommu_mode=1
+
+  - name: modprobe vfio-pci
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo modprobe vfio-pci
+
+  - name: discable vfio IOMMU
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      'echo 1 |
+      sudo tee -a /sys/module/vfio/parameters/enable_unsafe_noiommu_mode'
+
+  - name: bind to vfio-pci
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo dpdk-devbind.py --bind=vfio-pci 0000:00:03.0
+
+  - name: show network status
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo dpdk-devbind.py --status
+    expected:
+      "0000:00:03.0 'Virtio network device 1000' drv=vfio-pci"
+
+  - name: use ovs-vswitchd-dpdk
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      'sudo update-alternatives
+      --set ovs-vswitchd /usr/lib/openvswitch-switch-dpdk/ovs-vswitchd-dpdk &&
+      sudo /usr/share/openvswitch/scripts/ovs-ctl stop &&
+      sudo /usr/share/openvswitch/scripts/ovs-ctl --system-id=random start'
+
+  - name: create bridge
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-vsctl add-br ovsdpdkbr0 -- set bridge ovsdpdkbr0 datapath_type=netdev
+
+  - name: set datapath type of bridge
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-vsctl set Bridge ovsdpdkbr0 datapath_type=netdev
+
+  - name: add port to bridge
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-vsctl add-port ovsdpdkbr0 dpdk0
+      -- set Interface dpdk0 type=dpdk "options:dpdk-devargs=0000:00:03.0"
+
+  - name: bring up bridge
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ifconfig ovsdpdkbr0
+
+  - name: set bridge network address
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo dhclient ovsdpdkbr0
+
+  - name: add tap interface 1
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ip tuntap add mode tap vport1
+
+  - name: add tap interface 2
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ip tuntap add mode tap vport2
+
+  - name: bring up tap interface 1
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ifconfig vport1 up
+
+  - name: bring up tap interface 2
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ifconfig vport2 up
+
+  - name: add tap interface 1 to bridge
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-vsctl add-port ovsdpdkbr0 vport1 -- \
+      set Interface vport1 type=dpdkvhostuserclient \
+      options:vhost-server-path=/tmp/vsock1
+
+  - name: add tap interface 2 to bridge
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-vsctl add-port ovsdpdkbr0 vport2 -- \
+      set Interface vport2 type=dpdkvhostuserclient \
+      options:vhost-server-path=/tmp/vsock2
+
+  - name: show virtual switch configuration
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-vsctl show
+
+  - name: show bridge ports
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-ofctl dump-ports ovsdpdkbr0
+
+  - name: show bridge
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-ofctl show ovsdpdkbr0
+
+  - name: show flows
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-ofctl dump-flows ovsdpdkbr0
+
   - name: stop main VM
-    stop: launch main VM
+    dontstop: launch main VM
