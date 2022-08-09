@@ -25,6 +25,7 @@ steps:
       rm -rf cidata/ &&
       mkdir cidata/ &&
       echo 'instance-id:' $(uuidgen) > cidata/meta-data &&
+      cp id_rsa* cidata/ &&
       cp kinetic-server-cloudimg-amd64.img cidata/ &&
       src/userdata.py -o cidata/user-data -n virtamd64
       -p 'genisoimage grub-efi make net-tools qemu-system-x86' &&
@@ -33,8 +34,46 @@ steps:
 
   - name: create image
     command:
-      test -f amd64.img || (
+      rm -f amd64.img && (
       cp kinetic-server-cloudimg-amd64.raw amd64.img &&
       qemu-img resize -f raw amd64.img 16G
       )
 
+  - name: launch main VM
+    launch:
+      qemu-system-x86_64
+      -M q35 -cpu host -accel kvm -m 20G -smp 8
+      -nographic
+      -drive file=amd64.img,format=raw,if=virtio
+      -drive file=cidata-amd64.iso,format=raw,if=virtio
+      -global driver=cfi.pflash01,property=secure,value=off
+      -drive if=pflash,format=raw,unit=0,file=/usr/share/OVMF/OVMF_CODE_4M.fd,readonly=on
+      -drive if=pflash,format=raw,unit=1,file=VARS-amd64.fd
+      -device virtio-net-pci,netdev=eth0,mq=on
+      -netdev user,id=eth0,hostfwd=tcp::8011-:22,hostfwd=tcp::8021-:8021,hostfwd=tcp::8022-:8022
+      -device virtio-net-pci,netdev=eth1,mq=on
+      -netdev user,id=eth1,hostfwd=tcp::8012-:22
+    expected: Cloud-init.*finished at
+
+  - name: reset terminal
+    command:
+      echo reset
+
+  - name: wait
+    command:
+      sleep 5
+
+  - name: mount cidata
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      'sudo mount /dev/vdb /mnt && cp /mnt/id_rsa* /home/user'
+
+  - name: foo
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      'pwd && ls /mnt && ls /home/user'
+
+  - name: stop main VM
+    stop: launch main VM
