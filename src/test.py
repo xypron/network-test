@@ -14,6 +14,7 @@ class ProcessRunner:
         print(step['launch'])
         self.proc = subprocess.Popen(step['launch'].split(),
             shell = False,
+            stdin = subprocess.PIPE,
             stdout = subprocess.PIPE,
             stderr = subprocess.PIPE)
         if expected:
