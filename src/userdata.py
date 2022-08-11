@@ -58,6 +58,7 @@ class UserData:
                 'grep unpriv_ping /etc/group | sed -e \'s/^[^[:digit:]]*\\([[:digit:]]*\\).*/net.ipv4.ping_group_range = \\1 \\1/g\' > /etc/sysctl.d/99-qemu.conf',
                 'grub-install',
                 'sed -i -e \'s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="default_hugepagesz=2M hugepagesz=2M hugepages=5120"/g\' /etc/default/grub',
+                'sed -i -e \'s/GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT=""/g\' /etc/default/grub',
                 'update-grub',
                 'rm -rf /boot/extlinux/',
                 'reboot'

@@ -40,6 +40,7 @@ class UserData:
         self.data['runcmd'] = [
                 'grub-install',
                 'sed -i -e \'s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="default_hugepagesz=2M hugepagesz=2M hugepages=1024"/g\' /etc/default/grub',
+                'sed -i -e \'s/GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT=""/g\' /etc/default/grub',
                 'update-grub',
                 'reboot'
         ]
