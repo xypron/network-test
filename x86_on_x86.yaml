@@ -54,7 +54,7 @@ steps:
       cp cidata-amd64-1.iso cidata/ &&
       cp cidata-amd64-2.iso cidata/ &&
       src/userdata.py -o cidata/user-data -n virtamd64
-      -p 'grub-efi make net-tools qemu-system-x86' &&
+      -p 'dpdk grub-efi make net-tools qemu-system-x86' &&
       mkisofs -J -V cidata -o cidata-amd64.iso cidata/
       )
 
