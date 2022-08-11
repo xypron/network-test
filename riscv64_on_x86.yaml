@@ -88,7 +88,9 @@ steps:
       user,id=eth0,hostfwd=tcp::8111-:22,hostfwd=tcp::8121-:8121,hostfwd=tcp::8131-:8131
       -device virtio-net-pci,netdev=eth1,mq=on
       -netdev user,id=eth1,hostfwd=tcp::8112-:22
-    expected: Reached target.*Cloud-init target
+    expected:
+      - 'Stopped target'
+      - 'Cloud-init.*finished'
 
   - name: wait
     command:
@@ -138,7 +140,7 @@ steps:
     command:
       ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
       -p 8111 user@localhost
-      sudo dpdk-devbind.py --bind=vfio-pci 0000:00:03.0
+      sudo dpdk-devbind.py --bind=vfio-pci 0000:00:02.0
 
   - name: show network status
     command:
@@ -146,7 +148,7 @@ steps:
       -p 8111 user@localhost
       sudo dpdk-devbind.py --status
     expected:
-      "0000:00:03.0 'Virtio network device 1000' drv=vfio-pci"
+      "0000:00:02.0 'Virtio network device 1000' drv=vfio-pci"
 
   - name: use ovs-vswitchd-dpdk
     command:
@@ -175,7 +177,7 @@ steps:
       ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
       -p 8111 user@localhost
       sudo ovs-vsctl add-port ovsdpdkbr0 dpdk0
-      -- set Interface dpdk0 type=dpdk "options:dpdk-devargs=0000:00:03.0"
+      -- set Interface dpdk0 type=dpdk "options:dpdk-devargs=0000:00:02.0"
 
   - name: bring up bridge
     command:
@@ -276,7 +278,9 @@ steps:
       -netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2
       -drive file=nvme_1.img,format=raw,if=none,id=NVME1
       -device nvme,drive=NVME1,serial=nvme-1
-    expected: Reached target.*Cloud-init target
+    expected:
+      - 'Stopped target'
+      - 'Cloud-init.*finished'
 
   - name: launch VM 2
     launch:
@@ -298,7 +302,9 @@ steps:
       -chardev socket,id=char1,server=on,path=/tmp/vsock2
       -device virtio-net-pci,mac=00:00:00:00:02:02,netdev=eth1,mrg_rxbuf=off
       -netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2
-    expected: Reached target.*Cloud-init target
+    expected:
+      - 'Stopped target'
+      - 'Cloud-init.*finished'
 
   - name: VM1 set IP address
     command:
@@ -379,7 +385,7 @@ steps:
       ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
       -p 8121 user@localhost
       sudo /usr/share/spdk/scripts/rpc.py
-      bdev_nvme_attach_controller -b NVMe1 -t PCIe -a 0000:00:04.0
+      bdev_nvme_attach_controller -b NVMe1 -t PCIe -a 0000:00:03.0
 
   - name: VM1 create LUN
     command:
