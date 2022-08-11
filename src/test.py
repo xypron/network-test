@@ -18,7 +18,11 @@ class ProcessRunner:
             stdout = subprocess.PIPE,
             stderr = subprocess.PIPE)
         if expected:
-            self.wait_for_output(expected)
+            items = expected
+            if isinstance(items, str):
+                items = [items]
+            for item in items:
+                self.wait_for_output(item)
 
     def wait_for_output(self, expected):
         """Wait for a specific regular expression being matched and output line"""
