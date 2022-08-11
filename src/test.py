@@ -84,6 +84,15 @@ class TestRunner:
                 if not r.search(stdout):
                     print(f"'{item}' not found in {repr(stdout)}")
                     assert False
+        if 'expected_stderr' in step:
+            items = step['expected_stderr']
+            if isinstance(items, str):
+                items = [items]
+            for item in items:
+                r = re.compile(item)
+                if not r.search(stderr):
+                    print(f"'{item}' not found in {repr(stderr)}")
+                    assert False
         if 'unexpected' in step:
             items = step['unexpected']
             if isinstance(items, str):
