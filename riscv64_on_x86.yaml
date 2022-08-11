@@ -63,7 +63,7 @@ steps:
       cp cidata-riscv64-1.iso cidata/ &&
       cp cidata-riscv64-2.iso cidata/ &&
       src/userdata.py -o cidata/user-data -n virtriscv64
-      -p 'grub-efi make linux-image-starfive net-tools qemu-system-misc
+      -p 'grub-efi make linux-image-starfive net-tools opensbi qemu-system-misc
       u-boot-qemu' &&
       mkisofs -J -V cidata -o cidata-riscv64.iso cidata/
       )
