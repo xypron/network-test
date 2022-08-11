@@ -21,19 +21,19 @@ steps:
 
   - name: create cloud init data for child VM 1
     command:
-      test -f cidata-amd64.iso || (
+      test -f cidata-amd64-1.iso || (
       rm -rf cidata/ &&
       mkdir cidata/ &&
       echo 'instance-id:' $(uuidgen) > cidata/meta-data &&
       cp id_rsa* cidata/ &&
       src/clientdata.py -o cidata/user-data -n childvm1
-      -p 'dpdk grub-efi make net-tools spdk' &&
+      -p 'daemonize dpdk grub-efi make net-tools spdk' &&
       mkisofs -J -V cidata -o cidata-amd64-1.iso cidata/
       )
 
   - name: create cloud init data for child VM 2
     command:
-      test -f cidata-amd64.iso || (
+      test -f cidata-amd64-2.iso || (
       rm -rf cidata/ &&
       mkdir cidata/ &&
       echo 'instance-id:' $(uuidgen) > cidata/meta-data &&
@@ -65,6 +65,10 @@ steps:
       qemu-img resize -f raw amd64.img 16G
       )
 
+  - name: create EFI variable storage for VM
+    command:
+      dd if=/dev/zero of=VARS-amd64.fd bs=540672 count=1
+
   - name: launch main VM
     launch:
       qemu-system-x86_64
@@ -78,14 +82,10 @@ steps:
       -drive if=pflash,format=raw,unit=1,file=VARS-amd64.fd
       -device virtio-net-pci,netdev=eth0,mq=on
       -netdev
-      user,id=eth0,hostfwd=tcp::8011-:22,hostfwd=tcp::8021-:8021,hostfwd=tcp::8022-:8022
+      user,id=eth0,hostfwd=tcp::8011-:22,hostfwd=tcp::8021-:8021,hostfwd=tcp::8031-:8031
       -device virtio-net-pci,netdev=eth1,mq=on
       -netdev user,id=eth1,hostfwd=tcp::8012-:22
     expected: Reached target.*Cloud-init target
-
-  - name: reset terminal
-    command:
-      echo reset
 
   - name: wait
     command:
@@ -113,6 +113,12 @@ steps:
       'dd if=/dev/zero of=amd64_VARS_1.fd bs=540672 count=1 &&
       dd if=/dev/zero of=amd64_VARS_2.fd bs=540672 count=1'
 
+  - name: create NVMe disk image
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      dd if=/dev/zero of=nvme_1.img bs=128M count=1
+
   - name: modprobe vfio
     command:
       ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
@@ -125,7 +131,7 @@ steps:
       -p 8011 user@localhost
       sudo modprobe vfio-pci
 
-  - name: discable vfio IOMMU
+  - name: disable vfio IOMMU
     command:
       ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
       -p 8011 user@localhost
@@ -263,7 +269,7 @@ steps:
       -numa node,memdev=mem
       -mem-prealloc
       -drive file=amd64_1.img,format=raw,if=virtio
-      -drive file=/mnt/cidata-amd64-1.iso,format=raw,if=virtio
+      -drive file=/mnt/cidata-amd64-1.iso,format=raw,if=virtio,read-only=on
       -global driver=cfi.pflash01,property=secure,value=off
       -drive
       if=pflash,format=raw,unit=0,file=/usr/share/OVMF/OVMF_CODE_4M.fd,readonly=on
@@ -273,6 +279,8 @@ steps:
       -chardev socket,id=char1,server=on,path=/tmp/vsock1
       -device virtio-net-pci,mac=00:00:00:00:01:02,netdev=eth1,mrg_rxbuf=off
       -netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2
+      -drive file=nvme_1.img,format=raw,if=none,id=NVME1
+      -device nvme,drive=NVME1,serial=nvme-1
     expected: Reached target.*Cloud-init target
 
   - name: launch VM 2
@@ -287,21 +295,158 @@ steps:
       -numa node,memdev=mem
       -mem-prealloc
       -drive file=amd64_2.img,format=raw,if=virtio
-      -drive file=/mnt/cidata-amd64-2.iso,format=raw,if=virtio
+      -drive file=/mnt/cidata-amd64-2.iso,format=raw,if=virtio,read-only=on
       -global driver=cfi.pflash01,property=secure,value=off
       -drive
       if=pflash,format=raw,unit=0,file=/usr/share/OVMF/OVMF_CODE_4M.fd,readonly=on
       -drive if=pflash,format=raw,unit=1,file=amd64_VARS_2.fd
       -device virtio-net-pci,mac=00:00:00:00:02:01,netdev=eth0
-      -netdev user,id=eth0,hostfwd=tcp::8021-:22
+      -netdev user,id=eth0,hostfwd=tcp::8031-:22
       -chardev socket,id=char1,server=on,path=/tmp/vsock2
       -device virtio-net-pci,mac=00:00:00:00:02:02,netdev=eth1,mrg_rxbuf=off
       -netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2
     expected: Reached target.*Cloud-init target
 
-  - name: reset terminal
+  - name: VM1 set IP address
     command:
-      echo reset
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo ifconfig enp0s3 10.0.200.201/24 up
+
+  - name: VM1 modprobe vfio
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo modprobe vfio enable_unsafe_noiommu_mode=1
+
+  - name: VM1 modprobe vfio-pci
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo modprobe vfio-pci
+
+  - name: VM1 disable vfio IOMMU
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      'echo 1 |
+      sudo tee -a /sys/module/vfio/parameters/enable_unsafe_noiommu_mode'
+
+  - name: VM1 setup SPDK
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      'sudo /usr/share/spdk/scripts/setup.sh'
+
+  - name: VM1 start iSCSI target application as daemon
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo daemonize -e /tmp/iscsi_tgt_err.log -o /tmp/isci_tgt.log
+      -p /tmp/iscsi_tgt.pid
+      /usr/bin/sudo /usr/bin/iscsi_tgt
+
+  - name: wait
+    command:
+      sleep 3
+
+  - name: VM1 create portal group
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo /usr/share/spdk/scripts/rpc.py iscsi_create_portal_group 1 10.0.200.201:3260
+
+  - name: VM1 show portal group
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo /usr/share/spdk/scripts/rpc.py iscsi_get_portal_groups
+
+  - name: VM1 create initator group
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo /usr/share/spdk/scripts/rpc.py
+      iscsi_create_initiator_group 2 ANY 10.0.200.0/24
+
+  - name: VM1 show initator group
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo /usr/share/spdk/scripts/rpc.py iscsi_get_initiator_groups
+
+  - name: VM1 show PCIe devices
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      lspci
+
+  - name: VM1 attach to NVMe drive
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo /usr/share/spdk/scripts/rpc.py
+      bdev_nvme_attach_controller -b NVMe1 -t PCIe -a 0000:00:04.0
+
+  - name: VM1 create LUN
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      'sudo /usr/share/spdk/scripts/rpc.py
+      iscsi_create_target_node --disable-chap
+      disk1 "Data Disk1" "NVMe1n1:0" 1:2 64'
+
+  - name: VM1 show LUNs
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo /usr/share/spdk/scripts/rpc.py iscsi_get_target_nodes
+
+  - name: VM2 set IP address
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8031 user@localhost
+      sudo ifconfig enp0s3 10.0.200.202/24 up
+
+  - name: VM2 discover iSCSI targets
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8031 user@localhost
+      sudo iscsiadm -m discovery -t sendtargets -p 10.0.200.201
+
+  - name: VM2 log into iSCSI target
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8031 user@localhost
+      sudo iscsiadm -m node --login
+    expected: 'Login to.*10.0.200.201.*successful'
+
+  - name: VM1 show connections
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo /usr/share/spdk/scripts/rpc.py iscsi_get_connections
+    expected: initiator_addr.*10.0.200.202
+
+  - name: VM2 show block devices
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8031 user@localhost
+      lsblk
+    expected: 'sda'
+
+  - name: VM2 tune block device scheduler
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8031 user@localhost
+      'echo none | sudo tee /sys/block/sda/queue/scheduler'
+
+  - name: VM2 copy from iSCSI drive
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8031 user@localhost
+      sudo dd if=/dev/sda of=/dev/null bs=1M iflag=direct
+    expected_stderr: '128 MiB.*copied'
 
   - name: stop main VM
-    dontstop: launch main VM
+    stop: launch main VM
