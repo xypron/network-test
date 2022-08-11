@@ -354,7 +354,8 @@ steps:
     command:
       ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
       -p 8021 user@localhost
-      sudo /usr/share/spdk/scripts/rpc.py iscsi_create_portal_group 1 10.0.200.201:3260
+      sudo /usr/share/spdk/scripts/rpc.py
+      iscsi_create_portal_group 1 10.0.200.201:3260
 
   - name: VM1 show portal group
     command:
