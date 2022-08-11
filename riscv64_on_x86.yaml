@@ -1,0 +1,445 @@
+# test x86 on x86
+---
+steps:
+
+  - name: download image
+    command:
+      test -f kinetic-server-cloudimg-riscv64.img ||
+      wget
+      http://cloud-images.ubuntu.com/kinetic/current/kinetic-server-cloudimg-riscv64.img
+
+  - name: extract image
+    command:
+      test -f kinetic-server-cloudimg-riscv64.raw ||
+      qemu-img convert -f qcow2 -O raw kinetic-server-cloudimg-riscv64.img
+      kinetic-server-cloudimg-riscv64.raw
+
+  - name: create ssh certificate
+    command:
+      test -f id_rsa ||
+      ssh-keygen -t rsa -b 4096 -N '' -f id_rsa
+
+  - name: create cloud init data for child VM 1
+    command: >
+      test -f cidata-riscv64-1.iso || (
+      rm -rf cidata/ &&
+      mkdir cidata/ &&
+      echo 'instance-id:' $(uuidgen) > cidata/meta-data &&
+      echo 'Package: "openvswitch*\nPin:
+      release o=LP-PPA-ubuntu-risc-v-team-develop\nPin-Priority: 900"
+      > cidata/ppa_pin' &&
+      cp id_rsa* cidata/ &&
+      src/clientdata.py -o cidata/user-data -n childvm1
+      -p 'daemonize dpdk grub-efi linux-image-starfive make net-tools spdk' &&
+      mkisofs -J -V cidata -o cidata-riscv64-1.iso cidata/
+      )
+
+  - name: create cloud init data for child VM 2
+    command: >
+      test -f cidata-riscv64-2.iso || (
+      rm -rf cidata/ &&
+      mkdir cidata/ &&
+      echo 'instance-id:' $(uuidgen) > cidata/meta-data &&
+      echo 'Package: "openvswitch*\nPin:
+      release o=LP-PPA-ubuntu-risc-v-team-develop\nPin-Priority: 900"
+      > cidata/ppa_pin' &&
+      cp id_rsa* cidata/ &&
+      src/clientdata.py -o cidata/user-data -n childvm2
+      -p 'dpdk grub-efi make linux-image-starfive net-tools spdk' &&
+      mkisofs -J -V cidata -o cidata-riscv64-2.iso cidata/
+      )
+
+  - name: create cloud init data
+    command: >
+      test -f cidata-riscv64.iso || (
+      rm -rf cidata/ &&
+      mkdir cidata/ &&
+      echo 'instance-id:' $(uuidgen) > cidata/meta-data &&
+      echo 'Package: "openvswitch*\nPin:
+      release o=LP-PPA-ubuntu-risc-v-team-develop\nPin-Priority: 900"
+      > cidata/ppa_pin' &&
+      cp id_rsa* cidata/ &&
+      cp kinetic-server-cloudimg-riscv64.img cidata/ &&
+      cp cidata-riscv64-1.iso cidata/ &&
+      cp cidata-riscv64-2.iso cidata/ &&
+      src/userdata.py -o cidata/user-data -n virtriscv64
+      -p 'grub-efi make linux-image-starfive net-tools qemu-system-misc' &&
+      mkisofs -J -V cidata -o cidata-riscv64.iso cidata/
+      )
+
+  - name: create image
+    command:
+      rm -f riscv64.img && (
+      cp kinetic-server-cloudimg-riscv64.raw riscv64.img &&
+      qemu-img resize -f raw riscv64.img 16G
+      )
+
+  - name: launch main VM
+    launch:
+      qemu-system-riscv64
+      -M virt -accel tcg -m 20G -smp 8
+      -nographic
+      -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.bin
+      -kernel /usr/lib/u-boot/qemu-riscv64_smode/u-boot.bin
+      -drive file=riscv64.img,format=raw,if=virtio
+      -drive file=cidata-riscv64.iso,format=raw,if=virtio
+      -device virtio-net-pci,netdev=eth0,mq=on
+      -netdev
+      user,id=eth0,hostfwd=tcp::8011-:22,hostfwd=tcp::8021-:8021,hostfwd=tcp::8031-:8031
+      -device virtio-net-pci,netdev=eth1,mq=on
+      -netdev user,id=eth1,hostfwd=tcp::8012-:22
+    expected: Reached target.*Cloud-init target
+
+  - name: wait
+    command:
+      sleep 5
+
+  - name: mount cidata
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      'sudo mount /dev/vdb /mnt && cp /mnt/id_rsa* /home/user'
+
+  - name: create images for VMs
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      'qemu-img convert -f qcow2 -O raw /mnt/kinetic-server-cloudimg-riscv64.img
+      riscv64_1.img &&
+      qemu-img convert -f qcow2 -O raw /mnt/kinetic-server-cloudimg-riscv64.img
+      riscv64_2.img'
+
+  - name: create NVMe disk image
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      dd if=/dev/zero of=nvme_1.img bs=128M count=1
+
+  - name: modprobe vfio
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo modprobe vfio enable_unsafe_noiommu_mode=1
+
+  - name: modprobe vfio-pci
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo modprobe vfio-pci
+
+  - name: disable vfio IOMMU
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      'echo 1 |
+      sudo tee -a /sys/module/vfio/parameters/enable_unsafe_noiommu_mode'
+
+  - name: bind to vfio-pci
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo dpdk-devbind.py --bind=vfio-pci 0000:00:03.0
+
+  - name: show network status
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo dpdk-devbind.py --status
+    expected:
+      "0000:00:03.0 'Virtio network device 1000' drv=vfio-pci"
+
+  - name: use ovs-vswitchd-dpdk
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      'sudo update-alternatives
+      --set ovs-vswitchd /usr/lib/openvswitch-switch-dpdk/ovs-vswitchd-dpdk &&
+      sudo /usr/share/openvswitch/scripts/ovs-ctl stop &&
+      sudo /usr/share/openvswitch/scripts/ovs-ctl --system-id=random start'
+
+  - name: create bridge
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-vsctl add-br ovsdpdkbr0
+      -- set bridge ovsdpdkbr0 datapath_type=netdev
+
+  - name: set datapath type of bridge
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-vsctl set Bridge ovsdpdkbr0 datapath_type=netdev
+
+  - name: add port to bridge
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-vsctl add-port ovsdpdkbr0 dpdk0
+      -- set Interface dpdk0 type=dpdk "options:dpdk-devargs=0000:00:03.0"
+
+  - name: bring up bridge
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ifconfig ovsdpdkbr0
+
+  - name: set bridge network address
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo dhclient ovsdpdkbr0
+
+  - name: add tap interface 1
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ip tuntap add mode tap vport1
+
+  - name: add tap interface 2
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ip tuntap add mode tap vport2
+
+  - name: bring up tap interface 1
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ifconfig vport1 up
+
+  - name: bring up tap interface 2
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ifconfig vport2 up
+
+  - name: add tap interface 1 to bridge
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-vsctl add-port ovsdpdkbr0 vport1 -- \
+      set Interface vport1 type=dpdkvhostuserclient \
+      options:vhost-server-path=/tmp/vsock1
+
+  - name: add tap interface 2 to bridge
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-vsctl add-port ovsdpdkbr0 vport2 -- \
+      set Interface vport2 type=dpdkvhostuserclient \
+      options:vhost-server-path=/tmp/vsock2
+
+  - name: show virtual switch configuration
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-vsctl show
+
+  - name: show bridge ports
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-ofctl dump-ports ovsdpdkbr0
+
+  - name: show bridge
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-ofctl show ovsdpdkbr0
+
+  - name: show flows
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      sudo ovs-ofctl dump-flows ovsdpdkbr0
+
+  - name: launch VM 1
+    launch:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      qemu-system-riscv64
+      -M virt -cpu host -accel kvm -m 4G -smp 4
+      -nographic
+      -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.bin
+      -kernel /usr/lib/u-boot/qemu-riscv64_smode/u-boot.bin
+      -object
+      memory-backend-file,id=mem,size=4096M,mem-path=/dev/hugepages,share=on
+      -numa node,memdev=mem
+      -mem-prealloc
+      -drive file=riscv64_1.img,format=raw,if=virtio
+      -drive file=/mnt/cidata-riscv64-1.iso,format=raw,if=virtio,read-only=on
+      -global driver=cfi.pflash01,property=secure,value=off
+      -device virtio-net-pci,mac=00:00:00:00:01:01,netdev=eth0
+      -netdev user,id=eth0,hostfwd=tcp::8021-:22
+      -chardev socket,id=char1,server=on,path=/tmp/vsock1
+      -device virtio-net-pci,mac=00:00:00:00:01:02,netdev=eth1,mrg_rxbuf=off
+      -netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2
+      -drive file=nvme_1.img,format=raw,if=none,id=NVME1
+      -device nvme,drive=NVME1,serial=nvme-1
+    expected: Reached target.*Cloud-init target
+
+  - name: launch VM 2
+    launch:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8011 user@localhost
+      qemu-system-riscv64
+      -M virt -cpu host -accel kvm -m 4G -smp 4
+      -nographic
+      -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.bin
+      -kernel /usr/lib/u-boot/qemu-riscv64_smode/u-boot.bin
+      -object
+      memory-backend-file,id=mem,size=4096M,mem-path=/dev/hugepages,share=on
+      -numa node,memdev=mem
+      -mem-prealloc
+      -drive file=riscv64_2.img,format=raw,if=virtio
+      -drive file=/mnt/cidata-riscv64-2.iso,format=raw,if=virtio,read-only=on
+      -device virtio-net-pci,mac=00:00:00:00:02:01,netdev=eth0
+      -netdev user,id=eth0,hostfwd=tcp::8031-:22
+      -chardev socket,id=char1,server=on,path=/tmp/vsock2
+      -device virtio-net-pci,mac=00:00:00:00:02:02,netdev=eth1,mrg_rxbuf=off
+      -netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2
+    expected: Reached target.*Cloud-init target
+
+  - name: VM1 set IP address
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo ifconfig enp0s3 10.0.200.201/24 up
+
+  - name: VM1 modprobe vfio
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo modprobe vfio enable_unsafe_noiommu_mode=1
+
+  - name: VM1 modprobe vfio-pci
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo modprobe vfio-pci
+
+  - name: VM1 disable vfio IOMMU
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      'echo 1 |
+      sudo tee -a /sys/module/vfio/parameters/enable_unsafe_noiommu_mode'
+
+  - name: VM1 setup SPDK
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      'sudo /usr/share/spdk/scripts/setup.sh'
+
+  - name: VM1 start iSCSI target application as daemon
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo daemonize -e /tmp/iscsi_tgt_err.log -o /tmp/isci_tgt.log
+      -p /tmp/iscsi_tgt.pid
+      /usr/bin/sudo /usr/bin/iscsi_tgt
+
+  - name: wait
+    command:
+      sleep 3
+
+  - name: VM1 create portal group
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo /usr/share/spdk/scripts/rpc.py iscsi_create_portal_group 1 10.0.200.201:3260
+
+  - name: VM1 show portal group
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo /usr/share/spdk/scripts/rpc.py iscsi_get_portal_groups
+
+  - name: VM1 create initator group
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo /usr/share/spdk/scripts/rpc.py
+      iscsi_create_initiator_group 2 ANY 10.0.200.0/24
+
+  - name: VM1 show initator group
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo /usr/share/spdk/scripts/rpc.py iscsi_get_initiator_groups
+
+  - name: VM1 show PCIe devices
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      lspci
+
+  - name: VM1 attach to NVMe drive
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo /usr/share/spdk/scripts/rpc.py
+      bdev_nvme_attach_controller -b NVMe1 -t PCIe -a 0000:00:04.0
+
+  - name: VM1 create LUN
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      'sudo /usr/share/spdk/scripts/rpc.py
+      iscsi_create_target_node --disable-chap
+      disk1 "Data Disk1" "NVMe1n1:0" 1:2 64'
+
+  - name: VM1 show LUNs
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo /usr/share/spdk/scripts/rpc.py iscsi_get_target_nodes
+
+  - name: VM2 set IP address
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8031 user@localhost
+      sudo ifconfig enp0s3 10.0.200.202/24 up
+
+  - name: VM2 discover iSCSI targets
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8031 user@localhost
+      sudo iscsiadm -m discovery -t sendtargets -p 10.0.200.201
+
+  - name: VM2 log into iSCSI target
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8031 user@localhost
+      sudo iscsiadm -m node --login
+    expected: 'Login to.*10.0.200.201.*successful'
+
+  - name: VM1 show connections
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8021 user@localhost
+      sudo /usr/share/spdk/scripts/rpc.py iscsi_get_connections
+    expected: initiator_addr.*10.0.200.202
+
+  - name: VM2 show block devices
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8031 user@localhost
+      lsblk
+    expected: 'sda'
+
+  - name: VM2 tune block device scheduler
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8031 user@localhost
+      'echo none | sudo tee /sys/block/sda/queue/scheduler'
+
+  - name: VM2 copy from iSCSI drive
+    command:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8031 user@localhost
+      sudo dd if=/dev/sda of=/dev/null bs=1M iflag=direct
+    expected_stderr: '128 MiB.*copied'
+
+  - name: stop main VM
+    stop: launch main VM
