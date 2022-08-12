@@ -19,6 +19,36 @@ steps:
       test -f id_rsa ||
       ssh-keygen -t rsa -b 4096 -N '' -f id_rsa
 
+  - name: clone Linux stable
+    command:
+      test -d linux ||
+      git clone https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
+
+  - name: build Linux package
+    command:
+      "ls linux-image-5.19.1_5.19.1-*_riscv64.deb || ( \
+      cd linux && \
+      git checkout v5.19.1 && \
+      ARCH=riscv make defconfig && \
+      echo 'CONFIG_KVM=y' >> .config && \ >> .config && \
+      echo 'CONFIG_MD=y' >> .config && \
+      echo 'CONFIG_BLK_DEV_DM=y' >> .config && \
+      echo 'CONFIG_SECURITY=y' >> .config && \
+      echo 'CONFIG_SECURITYFS=y' >> .config && \
+      echo 'CONFIG_SECURITY_APPARMOR=y' >> .config && \
+      echo 'CONFIG_SECURITY_APPARMOR_HASH=y' >> .config && \
+      echo 'CONFIG_LSM=\"landlock,lockdown,yama,integrity,apparmor\"' >> .config && \
+      echo 'CONFIG_SECURITY_APPARMOR_HASH_DEFAULT=y' >> .config && \
+      echo 'CONFIG_VFIO=m' >> .config && \
+      echo 'CONFIG_VFIO_NOIOMMU=Y' >> .config && \
+      echo 'CONFIG_VFIO_PCI=m' >> .config && \
+      echo 'CONFIG_VFIO_MDEV=m' >> .config && \
+      echo 'CONFIG_ISO9660_FS=y' >> .config && \
+      echo 'CONFIG_JOLIET=y' >> .config && \
+      echo 'CONFIG_ZISOFS=y' >> .config && \
+      ARCH=riscv make olddefconfig && \
+      ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- make -j$(nproc) bindeb-pkg)"
+
   - name: create cloud init data for child VM 1
     command: >
       test -f cidata-riscv64-1.iso || (
@@ -62,8 +92,9 @@ steps:
       cp kinetic-server-cloudimg-riscv64.img cidata/ &&
       cp cidata-riscv64-1.iso cidata/ &&
       cp cidata-riscv64-2.iso cidata/ &&
+      cp linux-image-5.19.1_5.19.1-*_riscv64.deb cidata/ &&
       src/userdata.py -o cidata/user-data -n virtriscv64
-      -p 'dpdk grub-efi make linux-image-starfive net-tools opensbi
+      -p 'dpdk grub-efi make net-tools opensbi
       qemu-system-misc u-boot-qemu' &&
       mkisofs -J -V cidata -o cidata-riscv64.iso cidata/
       )
@@ -95,7 +126,7 @@ steps:
 
   - name: wait
     command:
-      sleep 5
+      sleep 60
 
   - name: mount cidata
     command:
@@ -255,6 +286,10 @@ steps:
       ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
       -p 8111 user@localhost
       sudo ovs-ofctl dump-flows ovsdpdkbr0
+
+  - name: wait
+    command:
+      sleep 60
 
   - name: launch VM 1
     launch:
