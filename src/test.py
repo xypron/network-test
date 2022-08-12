@@ -33,7 +33,7 @@ class ProcessRunner:
         while True:
             if self.proc.poll() is not None:
                 name = self.step['name']
-                self.logger.error('% ended prematurely', name)
+                self.logger.error('%s ended prematurely', name)
                 outs, errs = self.proc.communicate()
                 if outs:
                     stdout = outs.decode('utf-8')

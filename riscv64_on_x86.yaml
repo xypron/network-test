@@ -77,7 +77,7 @@ steps:
 
   - name: launch main VM
     launch:
-      qemu-system-riscv64
+      /usr/bin/qemu-system-riscv64
       -M virt -accel tcg -m 20G -smp 8
       -nographic
       -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.bin
