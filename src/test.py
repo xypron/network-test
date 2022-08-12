@@ -2,8 +2,10 @@
 """Run test"""
 
 import argparse
+import logging
 import re
 import subprocess
+import sys
 import yaml
 
 class ProcessRunner:
@@ -11,7 +13,8 @@ class ProcessRunner:
 
     def __init__(self, step, expected):
         self.step = step
-        print(step['launch'])
+        self.logger = logging.getLogger('network-test')
+        self.logger.info(step['launch'])
         self.proc = subprocess.Popen(step['launch'].split(),
             shell = False,
             stdin = subprocess.PIPE,
@@ -26,116 +29,142 @@ class ProcessRunner:
 
     def wait_for_output(self, expected):
         """Wait for a specific regular expression being matched and output line"""
-        r = re.compile(expected)
+        regex = re.compile(expected)
         while True:
             if self.proc.poll() is not None:
-                id = self.step['name']
-                print(f'{id} ended prematurely')
+                name = self.step['name']
+                self.logger.error('% ended prematurely', name)
+                outs, errs = self.proc.communicate()
+                if outs:
+                    stdout = outs.decode('utf-8')
+                    self.logger.info('stdout: %s', repr(stdout))
+                if errs:
+                    stderr = errs.decode('utf-8')
+                    self.logger.info('stderr: %s', repr(stderr))
                 assert False
             if (out := self.proc.stdout.readline()):
                 out = out.decode('utf-8', errors="ignore")
-                print(out, end='')
-                if r.search(out):
+                self.logger.info('stdout: %s', repr(out))
+                if regex.search(out):
+                    self.logger.info('reached \'%s\' in \'%s\'', expected, self.step['name'])
                     return
 
     def stop(self):
         """Stop process"""
+        name = self.step['name']
         if self.proc.poll() is not None:
-            id = self.step['name']
-            print(f'{id} ended prematurely')
+            self.logger.error('%s ended prematurely', name)
             assert False
         self.proc.kill()
-        id = self.step['name']
-        print(f"'{id}' stopped")
+        self.logger.info('\'%s\' stopped', name)
 
 class TestRunner:
     """Test runner"""
 
-    def __init__(self, file_name):
+    def __init__(self, file_name, log_file):
         self.filename = {}
-        print(file_name)
-        with open(file_name, "rt", encoding="utf-8") as f:
-            text = f.read()
-        print(text)
+        self.log_file = log_file
+        self.logger = logging.getLogger('network-test')
+        self.setup_logger()
+
+        self.logger.info(file_name)
+        with open(file_name, "rt", encoding="utf-8") as file:
+            text = file.read()
+        self.logger.info(text)
         self.test = yaml.load(text, Loader=yaml.SafeLoader)
         self.running = {}
 
+    def setup_logger(self):
+        """Set up logger"""
+        self.logger.setLevel(logging.DEBUG)
+
+        # create log file handler
+        if self.log_file:
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            file_handler = logging.FileHandler(self.log_file)
+            file_handler.setFormatter(formatter)
+            file_handler.setLevel(logging.DEBUG)
+            self.logger.addHandler(file_handler)
+
+        # create console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        self.logger.addHandler(console_handler)
+
     def command(self, step):
+        """execute a command"""
         command = step['command']
-        print(repr(command))
-        process = subprocess.run(command, capture_output = True, shell = True)
+        self.logger.info(repr(command))
+        process = subprocess.run(command, capture_output = True, shell = True, check = False)
 
         returncode = process.returncode
         stdout = process.stdout.decode('utf-8')
         stderr = process.stderr.decode('utf-8')
 
-        print(f"stdout: {repr(stdout)}")
-        print(f"stderr: {repr(stderr)}")
+        self.logger.info('stdout: %s', repr(stdout))
+        self.logger.info('stderr: %s', repr(stderr))
 
-        expected_returncode = step.get('ret', 0)
-        if expected_returncode != returncode:
-            print(f'unexpected return code {returncode}')
-            print(f'stderr {repr(stderr)}')
+        if (step.get('ret', 0)) != returncode:
+            self.logger.error('unexpected return code %d', returncode)
             assert False
-        assert(expected_returncode == process.returncode)
 
         if 'expected' in step:
             items = step['expected']
             if isinstance(items, str):
                 items = [items]
             for item in items:
-                r = re.compile(item)
-                if not r.search(stdout):
-                    print(f"'{item}' not found in {repr(stdout)}")
+                regex = re.compile(item)
+                if not regex.search(stdout):
+                    self.logger.error('\'%s\' not found in \'%s\'', item, repr(stdout))
                     assert False
         if 'expected_stderr' in step:
             items = step['expected_stderr']
             if isinstance(items, str):
                 items = [items]
             for item in items:
-                r = re.compile(item)
-                if not r.search(stderr):
-                    print(f"'{item}' not found in {repr(stderr)}")
+                regex = re.compile(item)
+                if not regex.search(stderr):
+                    self.logger.error('\'%s\' not found in \'%s\'', item, repr(stderr))
                     assert False
         if 'unexpected' in step:
             items = step['unexpected']
             if isinstance(items, str):
                 items = [items]
             for item in items:
-                r = re.compile(item)
-                if r.search(stdout):
-                    print(f"'{item}' found in {repr(stdout)}")
+                regex = re.compile(item)
+                if regex.search(stdout):
+                    self.logger.error('\'%s\' found in \'%s\'', item, repr(stdout))
                     assert False
-                if r.search(stderr):
-                    print(f"'{item}' found in {repr(stderr)}")
+                if regex.search(stderr):
+                    self.logger.error('\'%s\' found in \'%s\'', item, repr(stderr))
                     assert False
 
     def launch(self, step):
+        """launch process"""
         if not 'name' in step:
-            print('need a name')
+            self.logger.error('need a name')
             assert False
-        id = step['name']
-        if id in self.running:
-            print(f'A process with id {id} is already running')
+        if (name := step['name']) in self.running:
+            self.logger.error('A process with name \'%s\' is already running', name)
             assert False
-        print(f"launching '{id}'")
+        self.logger.info('launching \'%s\'', name)
         process = ProcessRunner(step, step.get('expected', None))
-        self.running[id] = process
-        pass
+        self.running[name] = process
 
     def stop(self, step):
-        id = step['stop']
-        if not id in self.running:
-            print(f'A process with id {id} is not launched')
+        """stop process"""
+        name = step['stop']
+        if not name in self.running:
+            self.logger.error('A process with name \'%s\' not launched', name)
             assert False
-        print(f"stopping '{id}'")
-        proc = self.running[id]
+        self.logger.info('stopping \'%s\'', name)
+        proc = self.running[name]
         proc.stop()
-        del self.running[id]
-        pass
+        del self.running[name]
 
     def execute_step(self, step):
-        print(f"executing '{step.get('name')}'")
+        """execute step"""
+        self.logger.info('executing \'%s\'', step.get('name'))
         if 'command' in step:
             self.command(step)
         if 'launch' in step:
@@ -144,16 +173,30 @@ class TestRunner:
             self.stop(step)
 
     def execute(self):
+        """execute test script"""
         for step in self.test['steps']:
-            self.execute_step(step)
+            try:
+                self.execute_step(step)
+            except AssertionError as exception:
+                self.logger.error(exception)
+                return 1
+        return 0
 
 def main():
     """Command line entry point"""
     parser = argparse.ArgumentParser(description='Create cloud-init user-data')
-    parser.add_argument('-f', '--filename', type=str, help='file name')
+    parser.add_argument('-f', '--script', type=str, help='script file name', required=True)
+    parser.add_argument('-l', '--log', type=str, help='log file name')
     args = parser.parse_args()
-    test_runner = TestRunner(args.filename)
-    test_runner.execute()
+    test_runner = TestRunner(args.script, args.log)
+    ret = 1
+    try:
+        ret = test_runner.execute()
+    except KeyboardInterrupt:
+        pass
+    if args.log:
+        print(f'The log is available in \'{args.log}\'.')
+    sys.exit(ret)
 
 if __name__ == '__main__':
     main()
