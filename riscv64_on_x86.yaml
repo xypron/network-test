@@ -45,6 +45,7 @@ steps:
       echo 'CONFIG_VFIO_MDEV=m' >> .config && \
       echo 'CONFIG_VFIO_NOIOMMU=y' >> .config && \
       echo 'CONFIG_TUN=y' >> .config && \
+      echo 'CONFIG_NUMA=y' >> .config && \
       echo 'CONFIG_OPENVSWITCH=m' >> .config && \
       echo 'CONFIG_VSOCKETS=m' >> .config && \
       echo 'CONFIG_VIRTIO_VSOCKETS=m' >> .config && \
