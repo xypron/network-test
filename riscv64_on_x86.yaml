@@ -76,7 +76,7 @@ steps:
       > cidata/ppa_pin' &&
       cp id_rsa* cidata/ &&
       src/clientdata.py -o cidata/user-data -n childvm1
-      -p 'daemonize dpdk grub-efi linux-image-starfive make net-tools spdk' &&
+      -r -p 'daemonize dpdk grub-efi make net-tools spdk' &&
       mkisofs -J -V cidata -o cidata-riscv64-1.iso cidata/
       )
 
@@ -91,7 +91,7 @@ steps:
       > cidata/ppa_pin' &&
       cp id_rsa* cidata/ &&
       src/clientdata.py -o cidata/user-data -n childvm2
-      -p 'dpdk grub-efi make linux-image-starfive net-tools spdk' &&
+      -r -p 'dpdk grub-efi make net-tools spdk' &&
       mkisofs -J -V cidata -o cidata-riscv64-2.iso cidata/
       )
 
@@ -110,7 +110,7 @@ steps:
       cp cidata-riscv64-2.iso cidata/ &&
       cp linux-image-5.19.1_5.19.1-*_riscv64.deb cidata/ &&
       src/userdata.py -o cidata/user-data -n virtriscv64
-      -p 'dpdk grub-efi make net-tools opensbi
+      -r -p 'dpdk grub-efi make net-tools opensbi
       qemu-system-misc u-boot-qemu' &&
       mkisofs -J -V cidata -o cidata-riscv64.iso cidata/
       )
@@ -332,7 +332,7 @@ steps:
       - 'Reached target.*System Reboot'
 
   - name: stop main VM
-    stop: launch VM 1
+    stopqemu: launch VM 1
     comment: reboot fails
 
   - name: restart VM 1
@@ -383,7 +383,7 @@ steps:
       - 'Reached target.*System Reboot'
 
   - name: stop main VM
-    stop: launch VM 2
+    stopqemu: launch VM 2
     comment: reboot fails
 
   - name: restart VM 2
@@ -407,14 +407,13 @@ steps:
       virtio-net-pci,mac=00:00:00:00:02:02,netdev=eth1,mrg_rxbuf=off,romfile=
       -netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2
     expected:
-      - 'Stopped target'
       - 'Cloud-init.*finished'
 
   - name: VM1 set IP address
     command:
       ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
       -p 8121 user@localhost
-      sudo ifconfig enp0s3 10.0.200.201/24 up
+      sudo ifconfig enp0s2 10.0.200.201/24 up
 
   - name: VM1 modprobe vfio
     command:
@@ -496,7 +495,10 @@ steps:
 
   - name: malloc block device
     command:
-      ./scripts/rpc.py bdev_malloc_create -b NVMe1 128 512
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8121 user@localhost
+      sudo /usr/share/spdk/scripts/rpc.py
+      bdev_malloc_create -b NVMe1n1 128 512
     comment:
       create block device in memory to replace missing NVMe drive
 
@@ -518,7 +520,7 @@ steps:
     command:
       ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
       -p 8131 user@localhost
-      sudo ifconfig enp0s3 10.0.200.202/24 up
+      sudo ifconfig enp0s2 10.0.200.202/24 up
 
   - name: VM2 discover iSCSI targets
     command:
