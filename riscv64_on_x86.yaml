@@ -38,7 +38,8 @@ steps:
       echo 'CONFIG_SECURITY_APPARMOR=y' >> .config && \
       echo 'CONFIG_DEFAULT_SECURITY_APPARMOR=y' >> .config && \
       echo 'CONFIG_SECURITY_APPARMOR_HASH=y' >> .config && \
-      echo 'CONFIG_LSM=\"landlock,lockdown,yama,integrity,apparmor\"' >> .config && \
+      echo 'CONFIG_LSM=\"landlock,lockdown,yama,integrity,apparmor\"'
+      >> .config && \
       echo 'CONFIG_SECURITY_APPARMOR_HASH_DEFAULT=y' >> .config && \
       echo 'CONFIG_VFIO=m' >> .config && \
       echo 'CONFIG_VFIO_PCI=m' >> .config && \
@@ -327,13 +328,65 @@ steps:
       -device
       virtio-net-pci,mac=00:00:00:00:01:02,netdev=eth1,mrg_rxbuf=off,romfile=
       -netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2
-      -drive file=nvme_1.img,format=raw,if=none,id=NVME1
-      -device nvme,drive=NVME1,serial=nvme-1
     expected:
-      - 'Stopped target'
+      - 'Reached target.*System Reboot'
+
+  - name: stop main VM
+    stop: launch VM 1
+    comment: reboot fails
+
+  - name: restart VM 1
+    launch:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8111 user@localhost
+      qemu-system-riscv64
+      -M virt -cpu host -accel kvm -m 4G -smp 4
+      -nographic
+      -kernel /usr/lib/u-boot/qemu-riscv64_smode/uboot.elf
+      -object
+      memory-backend-file,id=mem,size=4096M,mem-path=/dev/hugepages,share=on
+      -numa node,memdev=mem
+      -mem-prealloc
+      -drive file=riscv64_1.img,format=raw,if=virtio
+      -drive file=/mnt/cidata-riscv64-1.iso,format=raw,if=virtio,read-only=on
+      -global driver=cfi.pflash01,property=secure,value=off
+      -device virtio-net-pci,mac=00:00:00:00:01:01,netdev=eth0,romfile=
+      -netdev user,id=eth0,hostfwd=tcp::8121-:22
+      -chardev socket,id=char1,server=on,path=/tmp/vsock1
+      -device
+      virtio-net-pci,mac=00:00:00:00:01:02,netdev=eth1,mrg_rxbuf=off,romfile=
+      -netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2
+    expected:
       - 'Cloud-init.*finished'
 
   - name: launch VM 2
+    launch:
+      ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+      -p 8111 user@localhost
+      qemu-system-riscv64
+      -M virt -cpu host -accel kvm -m 4G -smp 4
+      -nographic
+      -kernel /usr/lib/u-boot/qemu-riscv64_smode/uboot.elf
+      -object
+      memory-backend-file,id=mem,size=4096M,mem-path=/dev/hugepages,share=on
+      -numa node,memdev=mem
+      -mem-prealloc
+      -drive file=riscv64_2.img,format=raw,if=virtio
+      -drive file=/mnt/cidata-riscv64-2.iso,format=raw,if=virtio,read-only=on
+      -device virtio-net-pci,mac=00:00:00:00:02:01,netdev=eth0,romfile=
+      -netdev user,id=eth0,hostfwd=tcp::8131-:22
+      -chardev socket,id=char1,server=on,path=/tmp/vsock2
+      -device
+      virtio-net-pci,mac=00:00:00:00:02:02,netdev=eth1,mrg_rxbuf=off,romfile=
+      -netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2
+    expected:
+      - 'Reached target.*System Reboot'
+
+  - name: stop main VM
+    stop: launch VM 2
+    comment: reboot fails
+
+  - name: restart VM 2
     launch:
       ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
       -p 8111 user@localhost
@@ -433,11 +486,19 @@ steps:
       lspci
 
   - name: VM1 attach to NVMe drive
-    command:
+    command: true
+    comment:
+      NVMe does not work correctly with QEMU yet
       ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
       -p 8121 user@localhost
       sudo /usr/share/spdk/scripts/rpc.py
       bdev_nvme_attach_controller -b NVMe1 -t PCIe -a 0000:00:03.0
+
+  - name: malloc block device
+    command:
+      ./scripts/rpc.py bdev_malloc_create -b NVMe1 128 512
+    comment:
+      create block device in memory to replace missing NVMe drive
 
   - name: VM1 create LUN
     command:
