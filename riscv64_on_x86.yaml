@@ -123,7 +123,7 @@ steps:
 
   - name: launch main VM
     launch:
-      /usr/bin/qemu-system-riscv64
+      qemu-system-riscv64
       -M virt -accel tcg -m 20G -smp 8
       -nographic
       -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.bin
@@ -313,8 +313,7 @@ steps:
       qemu-system-riscv64
       -M virt -cpu host -accel kvm -m 4G -smp 4
       -nographic
-      -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.bin
-      -kernel /usr/lib/u-boot/qemu-riscv64_smode/u-boot.bin
+      -kernel /usr/lib/u-boot/qemu-riscv64_smode/uboot.elf
       -object
       memory-backend-file,id=mem,size=4096M,mem-path=/dev/hugepages,share=on
       -numa node,memdev=mem
@@ -341,8 +340,7 @@ steps:
       qemu-system-riscv64
       -M virt -cpu host -accel kvm -m 4G -smp 4
       -nographic
-      -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.bin
-      -kernel /usr/lib/u-boot/qemu-riscv64_smode/u-boot.bin
+      -kernel /usr/lib/u-boot/qemu-riscv64_smode/uboot.elf
       -object
       memory-backend-file,id=mem,size=4096M,mem-path=/dev/hugepages,share=on
       -numa node,memdev=mem
