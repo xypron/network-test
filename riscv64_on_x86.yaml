@@ -130,10 +130,10 @@ steps:
       -kernel /usr/lib/u-boot/qemu-riscv64_smode/u-boot.bin
       -drive file=riscv64.img,format=raw,if=virtio
       -drive file=cidata-riscv64.iso,format=raw,if=virtio
-      -device virtio-net-pci,netdev=eth0,mq=on
+      -device virtio-net-pci,netdev=eth0,mq=on,romfile=
       -netdev
       user,id=eth0,hostfwd=tcp::8111-:22,hostfwd=tcp::8121-:8121,hostfwd=tcp::8131-:8131
-      -device virtio-net-pci,netdev=eth1,mq=on
+      -device virtio-net-pci,netdev=eth1,mq=on,romfile=
       -netdev user,id=eth1,hostfwd=tcp::8112-:22
     expected:
       - 'Stopped target'
@@ -322,10 +322,11 @@ steps:
       -drive file=riscv64_1.img,format=raw,if=virtio
       -drive file=/mnt/cidata-riscv64-1.iso,format=raw,if=virtio,read-only=on
       -global driver=cfi.pflash01,property=secure,value=off
-      -device virtio-net-pci,mac=00:00:00:00:01:01,netdev=eth0
+      -device virtio-net-pci,mac=00:00:00:00:01:01,netdev=eth0,romfile=
       -netdev user,id=eth0,hostfwd=tcp::8121-:22
       -chardev socket,id=char1,server=on,path=/tmp/vsock1
-      -device virtio-net-pci,mac=00:00:00:00:01:02,netdev=eth1,mrg_rxbuf=off
+      -device
+      virtio-net-pci,mac=00:00:00:00:01:02,netdev=eth1,mrg_rxbuf=off,romfile=
       -netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2
       -drive file=nvme_1.img,format=raw,if=none,id=NVME1
       -device nvme,drive=NVME1,serial=nvme-1
@@ -348,10 +349,11 @@ steps:
       -mem-prealloc
       -drive file=riscv64_2.img,format=raw,if=virtio
       -drive file=/mnt/cidata-riscv64-2.iso,format=raw,if=virtio,read-only=on
-      -device virtio-net-pci,mac=00:00:00:00:02:01,netdev=eth0
+      -device virtio-net-pci,mac=00:00:00:00:02:01,netdev=eth0,romfile=
       -netdev user,id=eth0,hostfwd=tcp::8131-:22
       -chardev socket,id=char1,server=on,path=/tmp/vsock2
-      -device virtio-net-pci,mac=00:00:00:00:02:02,netdev=eth1,mrg_rxbuf=off
+      -device
+      virtio-net-pci,mac=00:00:00:00:02:02,netdev=eth1,mrg_rxbuf=off,romfile=
       -netdev type=vhost-user,id=eth1,chardev=char1,vhostforce=on,queues=2
     expected:
       - 'Stopped target'
