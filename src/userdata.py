@@ -7,7 +7,8 @@ import yaml
 class UserData:
     """Generate cloud-init user-data"""
 
-    def __init__(self, host_name, ssh_key_file, user, packages = ''):
+    def __init__(self, host_name, ssh_key_file, user, packages = '',
+                 reboot = False, poweroff = False):
         self.data = {}
         self.data['hostname'] = host_name
         self.data['manage_etc_hosts'] = 'localhost'
@@ -60,9 +61,12 @@ class UserData:
                 'sed -i -e \'s/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="default_hugepagesz=2M hugepagesz=2M hugepages=5120"/g\' /etc/default/grub',
                 'sed -i -e \'s/GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT=""/g\' /etc/default/grub',
                 'update-grub',
-                'rm -rf /boot/extlinux/',
-                'reboot'
+                'rm -rf /boot/extlinux/'
         ]
+        if reboot:
+            self.data['runcmd'].append('reboot')
+        if poweroff:
+            self.data['runcmd'].append('poweroff')
 
     def dump(self, file_name):
         """Writes the user-data yaml file"""
@@ -85,9 +89,11 @@ def main():
     parser.add_argument('-o', '--filename', default='user-data', type=str, help='file name')
     parser.add_argument('-p', '--packages', default='user-data', type=str, help='whitespace separated list of packages')
     parser.add_argument('-s', '--sshkeyfile', default='id_rsa.pub', help='ssh key file')
+    parser.add_argument('-r', '--reboot', action='store_true', help='reboot')
+    parser.add_argument('-P', '--poweroff', action='store_true', help='poweroff')
     parser.add_argument('-u', '--user', default='user', help='user name')
     args = parser.parse_args()
-    user_data = UserData(args.hostname, args.sshkeyfile, args.user, args.packages)
+    user_data = UserData(args.hostname, args.sshkeyfile, args.user, args.packages, args.reboot, args.poweroff)
     user_data.dump(args.filename)
 
 if __name__ == '__main__':
