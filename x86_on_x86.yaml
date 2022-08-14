@@ -27,7 +27,7 @@ steps:
       echo 'instance-id:' $(uuidgen) > cidata/meta-data &&
       cp id_rsa* cidata/ &&
       src/clientdata.py -o cidata/user-data -n childvm1
-      -p 'daemonize dpdk grub-efi make net-tools spdk' &&
+      -r -p 'daemonize dpdk grub-efi make net-tools spdk' &&
       mkisofs -J -V cidata -o cidata-amd64-1.iso cidata/
       )
 
@@ -39,7 +39,7 @@ steps:
       echo 'instance-id:' $(uuidgen) > cidata/meta-data &&
       cp id_rsa* cidata/ &&
       src/clientdata.py -o cidata/user-data -n childvm2
-      -p 'dpdk grub-efi make net-tools spdk' &&
+      -r -p 'dpdk grub-efi make net-tools spdk' &&
       mkisofs -J -V cidata -o cidata-amd64-2.iso cidata/
       )
 
@@ -54,7 +54,7 @@ steps:
       cp cidata-amd64-1.iso cidata/ &&
       cp cidata-amd64-2.iso cidata/ &&
       src/userdata.py -o cidata/user-data -n virtamd64
-      -p 'dpdk grub-efi make net-tools qemu-system-x86' &&
+      -r -p 'dpdk grub-efi make net-tools qemu-system-x86' &&
       mkisofs -J -V cidata -o cidata-amd64.iso cidata/
       )
 
