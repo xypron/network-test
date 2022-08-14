@@ -48,7 +48,6 @@ class ProcessRunner:
                 if regex.search(out):
                     self.logger.info('reached \'%s\' in \'%s\'', expected, self.step['name'])
                     return
-
     def stop(self):
         """Stop process"""
         name = self.step['name']
@@ -57,6 +56,18 @@ class ProcessRunner:
             assert False
         self.proc.kill()
         self.logger.info('\'%s\' stopped', name)
+
+    def stop_qemu(self):
+        """stop QEMU"""
+        #self.proc.stdin.write(b'\x01x')
+        #self.proc.stdin.flush()
+        outs, errs = self.proc.communicate(b'\x01x', timeout=None)
+        if outs:
+            stdout = outs.decode('utf-8')
+            self.logger.info('stdout: %s', repr(stdout))
+        if errs:
+            stderr = errs.decode('utf-8')
+            self.logger.info('stderr: %s', repr(stderr))
 
 class TestRunner:
     """Test runner"""
@@ -162,15 +173,30 @@ class TestRunner:
         proc.stop()
         del self.running[name]
 
+    def stop_qemu(self, step):
+        """stop process"""
+        name = step['stopqemu']
+        if not name in self.running:
+            self.logger.error('A process with name \'%s\' not launched', name)
+            assert False
+        self.logger.info('stopping QEMU \'%s\'', name)
+        proc = self.running[name]
+        proc.stop_qemu()
+        del self.running[name]
+
     def execute_step(self, step):
         """execute step"""
         self.logger.info('executing \'%s\'', step.get('name'))
         if 'command' in step:
             self.command(step)
-        if 'launch' in step:
+        elif 'launch' in step:
             self.launch(step)
-        if 'stop' in step:
+        elif 'stop' in step:
             self.stop(step)
+        elif 'stopqemu' in step:
+            self.stop_qemu(step)
+        else:
+            self.logger.error('unknown step \'%s\'', step)
 
     def execute(self):
         """execute test script"""
