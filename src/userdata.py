@@ -40,8 +40,8 @@ class UserData:
         self.data['runcmd'] = [
                 'DEBIAN_FRONTEND=noninteractive apt-get purge -y flash-kernel grub-pc-bin u-boot-menu',
                 'mount /dev/vdb /mnt -o ro',
-                'ls /mnt/*.deb && dpkg -i /mnt/*.deb',
-                'test -f /mnt/*_pin && cp /mnt/*_pin /etc/apt/preferences.d/',
+                'dpkg -i /mnt/*.deb',
+                'cp /mnt/*_pin /etc/apt/preferences.d/',
                 'umount /dev/vdb',
                 'DEBIAN_FRONTEND=noninteractive apt-get install openvswitch-switch-dpdk -y',
                 'systemctl start dpdk',
