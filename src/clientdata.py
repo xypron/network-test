@@ -21,11 +21,6 @@ class UserData:
                 'source' : 'ppa:ubuntu-risc-v-team/develop',
                 'keyid' : '52663FF2DFDC39CA',
                 'keyserver' : 'keyserver.ubuntu.com'
-            },
-            'kernel' : {
-                'source' : 'ppa:canonical-kernel-team/ppa',
-                'keyid' : '0856F197B892ACEA',
-                'keyserver' : 'keyserver.ubuntu.com'
             }
         }}
         self.data['users'] = [{
