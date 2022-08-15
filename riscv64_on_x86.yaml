@@ -485,7 +485,7 @@ steps:
       lspci
 
   - name: VM1 attach to NVMe drive
-    command: true
+    command: 'true'
     comment:
       NVMe does not work correctly with QEMU yet
       ssh -i id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
