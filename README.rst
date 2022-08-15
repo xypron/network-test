@@ -7,7 +7,7 @@ This test is used to test the packages
 * Open vSwitch
 * Storage Performance Development Kit (SPDK)
 
-on the RISC-V architectures.
+on the x86_64 and RISC-V architectures.
 
 The packages are provided in the following Ubuntu PPA repositories:
 
