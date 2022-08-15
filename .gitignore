@@ -1,0 +1,13 @@
+cidata/
+config-
+id_rsa*
+linux/
+user-data
+*.buildinfo
+*.changes
+*.deb
+*.fd
+*.img
+*.iso
+*.log
+*.raw
