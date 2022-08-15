@@ -110,15 +110,13 @@ Test are executed using src/test.py which takes the following arguments
 
    test.py [-h] -f SCRIPT [-l LOG]
 
-Test runner
-
--h, --help
+\-h, --help
     show help message and exit
 
--f SCRIPT, --script SCRIPT
+\-f SCRIPT, --script SCRIPT
     script file name
 
--l LOG, --log LOG
+\-l LOG, --log LOG
     log file name
 
 test.sh is supplied as wrapper around src/test.py.
