@@ -210,7 +210,7 @@ class TestRunner:
 
 def main():
     """Command line entry point"""
-    parser = argparse.ArgumentParser(description='Create cloud-init user-data')
+    parser = argparse.ArgumentParser(description='Test runner')
     parser.add_argument('-f', '--script', type=str, help='script file name', required=True)
     parser.add_argument('-l', '--log', type=str, help='log file name')
     args = parser.parse_args()
