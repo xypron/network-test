@@ -17,7 +17,8 @@ The packages are provided in the following Ubuntu PPA repositories:
 Test scripts
 ------------
 
-The test steps are described in YAML files and run via src/test.py.
+The test steps are described in YAML files (amd64.yaml, riscv64.yaml)  and run
+via src/test.py.
 
 The generic structure of a test script is
 
@@ -171,3 +172,17 @@ other is available for Open VSwitch.
 
 The ssh ports of all virtual machines are forwarded to the host. Different port
 numbers are used for forwarding for each tested architecture.
+
+Code
+----
+
+src/test.py
+    This is the test runner script.
+
+userdata.py
+    This helper script creates the user-data file for cloud-init of the main
+    virtual machine.
+
+clientdata.py
+    This helper script creates the user-data file for cloud-init of the
+    child virtual machines.
