@@ -197,6 +197,7 @@ class TestRunner:
             self.stop_qemu(step)
         else:
             self.logger.error('unknown step \'%s\'', step)
+            assert False
 
     def execute(self):
         """execute test script"""
@@ -204,8 +205,9 @@ class TestRunner:
             try:
                 self.execute_step(step)
             except AssertionError as exception:
-                self.logger.error(exception)
+                self.logger.error('Test step \'%s\' failed', step.get('name'))
                 return 1
+        self.logger.info('All test steps executed successfully')
         return 0
 
 def main():
