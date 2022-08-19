@@ -17,7 +17,7 @@ The packages are provided in the following Ubuntu PPA repositories:
 Test scripts
 ------------
 
-The test steps are described in YAML files (amd64.yaml, riscv64.yaml)  and run
+The test steps are described in YAML files (amd64.yaml, riscv64.yaml) and run
 via src/test.py.
 
 The generic structure of a test script is
